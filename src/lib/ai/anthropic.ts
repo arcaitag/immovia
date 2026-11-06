@@ -10,6 +10,8 @@ import Anthropic, {
   PermissionDeniedError,
   RateLimitError,
 } from "@anthropic-ai/sdk";
+import type { MessageStream } from "@anthropic-ai/sdk/lib/MessageStream";
+import type { ParseableMessageCreateParams } from "@anthropic-ai/sdk";
 import type { Message, MessageCreateParamsNonStreaming, MessageParam, OutputConfig } from "@anthropic-ai/sdk/resources/messages";
 import { AI_LIMITS, supportsEffort } from "@/lib/ai/config";
 import type { TokenUsage } from "@/lib/ai/cost";
@@ -202,9 +204,16 @@ export class AnthropicProvider implements AiProvider {
   }
 
   async streamText(options: StreamTextOptions): Promise<AiTextStream> {
-    const params = this.buildParams(options);
+    const base = this.buildParams(options);
+    const params: ParseableMessageCreateParams = {
+      model: base.model,
+      max_tokens: base.max_tokens,
+      system: base.system,
+      messages: base.messages,
+      ...(base.output_config?.effort ? { output_config: { effort: base.output_config.effort } } : {}),
+    };
     let attempts = 0;
-    let stream: ReturnType<Anthropic["messages"]["stream"]>;
+    let stream: MessageStream<unknown>;
     try {
       // Wiederholungen nur bis zur Verbindung (vor dem ersten Text), danach nicht mehr
       stream = await withRetry(

@@ -113,8 +113,10 @@ export const viewingCancelledTemplate = defineTemplate({
               { type: "button" as const, label: "Freie Termine ansehen", url: ctx.url(`/immobilien/${data.slug}`) },
             ]
           : [{ type: "button" as const, label: "Zu den Besichtigungen", url: forGuest ? guestLink(ctx) : sellerLink(ctx, data.listing_id) }]),
+        ...(forGuest
+          ? [{ type: "paragraph" as const, muted: true, text: "Falls Sie den Termin im Kalender gespeichert haben, löschen Sie ihn bitte dort." }]
+          : []),
       ],
-      attachments: forGuest ? calendarAttachment(data.calendar ? { ...data.calendar, status: "CANCELLED" } : null, ctx) : undefined,
     };
   },
 });

@@ -73,3 +73,21 @@ export const reportSchema = z.object({
   details: z.string().trim().max(2000, "Höchstens 2000 Zeichen.").optional(),
 });
 export type ReportInput = z.input<typeof reportSchema>;
+
+/** Benachrichtigungen (Dashboard): gelesen/ungelesen markieren und löschen. */
+export const notificationReadSchema = z
+  .object({
+    ids: z.array(z.guid()).max(200).optional(),
+    all: z.boolean().optional(),
+    read: z.boolean(),
+  })
+  .refine((v) => v.all === true || (v.ids?.length ?? 0) > 0, "Keine Benachrichtigung ausgewählt.");
+export type NotificationReadInput = z.input<typeof notificationReadSchema>;
+
+export const notificationDeleteSchema = z
+  .object({
+    ids: z.array(z.guid()).max(200).optional(),
+    allRead: z.boolean().optional(),
+  })
+  .refine((v) => v.allRead === true || (v.ids?.length ?? 0) > 0, "Keine Benachrichtigung ausgewählt.");
+export type NotificationDeleteInput = z.input<typeof notificationDeleteSchema>;

@@ -73,13 +73,16 @@ export function buildSlotSeries(input: SlotSeriesInput): SlotSeriesResult {
   for (let i = 0; i < occurrences; i++) {
     const day = addDaysIso(input.date, i * stepDays);
     const chunk = duration === 0 ? span : duration;
+    let previousEnd = Number.NEGATIVE_INFINITY;
     for (let from = start; from + chunk <= end; from += chunk) {
       const localStart = minutesToTime(from);
       const localEnd = minutesToTime(from + chunk);
       const startsAt = zurichLocalToUtc(day, localStart);
       const endsAt = zurichLocalToUtc(day, localEnd);
-      // In der Nacht der Zeitumstellung kann ein Zeitraum verkürzt sein oder ganz entfallen
-      if (endsAt.getTime() <= startsAt.getTime()) continue;
+      // In der Nacht der Zeitumstellung gibt es lokale Zeiten nicht (Frühling) bzw. doppelt (Herbst):
+      // leere oder sich überschneidende Zeitfenster werden ausgelassen.
+      if (endsAt.getTime() <= startsAt.getTime() || startsAt.getTime() < previousEnd) continue;
+      previousEnd = endsAt.getTime();
       slots.push({ date: day, localStart, localEnd, startsAt, endsAt });
     }
   }
