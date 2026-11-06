@@ -218,7 +218,7 @@ export default async function ListingPage({ params }: Props) {
                     <MapPin className="mt-0.5 size-[18px] shrink-0" aria-hidden />
                     <span>
                       {address}
-                      {approximate ? <span className="text-muted-foreground/80"> · {LOCATION_PRECISION[l.location_precision].label}</span> : null}
+                      {approximate ? <span className="text-muted-foreground/80"> · {LOCATION_PRECISION[l.location_precision].publicLabel}</span> : null}
                     </span>
                   </p>
                 ) : null}

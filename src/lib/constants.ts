@@ -136,10 +136,11 @@ export const OWNERSHIP_TYPES: Record<OwnershipType, string> = {
   other: "Andere",
 };
 
-export const LOCATION_PRECISION: Record<LocationPrecision, { label: string; description: string }> = {
-  exact: { label: "Exakte Adresse", description: "Strasse, Hausnummer und genauer Standort auf der Karte." },
-  street: { label: "Nur Strasse", description: "Strasse ohne Hausnummer, Standort auf ca. 100 m genau." },
-  area: { label: "Nur Ort", description: "PLZ und Ort, Standort auf ca. 1 km genau." },
+/** label: Auswahl für Inserierende; publicLabel: Hinweis für Besuchende des Inserats */
+export const LOCATION_PRECISION: Record<LocationPrecision, { label: string; publicLabel: string; description: string }> = {
+  exact: { label: "Exakte Adresse", publicLabel: "Genaue Adresse", description: "Strasse, Hausnummer und genauer Standort auf der Karte." },
+  street: { label: "Nur Strasse", publicLabel: "Lage auf ca. 100 m", description: "Strasse ohne Hausnummer, Standort auf ca. 100 m genau." },
+  area: { label: "Nur Ort", publicLabel: "Ungefähre Lage", description: "PLZ und Ort, Standort auf ca. 1 km genau." },
 };
 
 export const DOCUMENT_CATEGORIES: Record<DocumentCategory, string> = {

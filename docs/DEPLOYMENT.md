@@ -2,6 +2,34 @@
 
 Diese Anleitung beschreibt die Einrichtung von Immovia in einer neuen Umgebung. Für die Produktion gilt: Demo-Daten nie einspielen, alle Schlüssel nur als Umgebungsvariablen.
 
+## 0. Aktueller Stand der Immovia-Umgebung
+
+| Teil | Stand |
+|---|---|
+| GitHub | `arcaitag/immovia`; Entwicklung auf `develop` (Preview-Deployments), Produktion = `main` |
+| Supabase | Projekt `immovia` (Ref `wlvhzhphpyvlqkafskwf`, Zürich, PostgreSQL 17). Alle Migrationen eingespielt und per `scripts/schema-fingerprint.sql` gegen die lokal getestete Datenbank geprüft. **Offen:** das Entfernen der zwei leeren Spalten `listings.contact_email`/`contact_phone` (siehe unten, braucht eine Bestätigung im Dashboard). Keine Demo-Daten. |
+| Vercel | Projekt `immovia` (Team arcaitag), mit dem Repository verbunden. Produktionsdomain `immovia-olive.vercel.app`, derzeit durch **Vercel Authentication** geschützt (nur Team-Mitglieder). Umgebungsvariablen müssen im Dashboard gesetzt werden (siehe 3.2). |
+
+### Noch auszuführen (Supabase SQL Editor)
+
+```sql
+-- Teil von Migration 20261106250000: private Kontaktfelder liegen in listing_contacts
+alter table public.listings drop column contact_email, drop column contact_phone;
+```
+
+### Migrationshistorie und Supabase CLI
+
+Die Migrationen wurden über die Supabase-Verbindung von Claude eingespielt (teilweise in mehreren Teilen). Die Versionen in `supabase_migrations.schema_migrations` entsprechen deshalb nicht den Dateinamen. Wer später mit der CLI arbeitet, gleicht die Historie einmalig an:
+
+```bash
+supabase link --project-ref wlvhzhphpyvlqkafskwf
+supabase migration list                     # zeigt die abweichenden Remote-Versionen
+supabase migration repair --status reverted <alle Remote-Versionen aus der Liste>
+supabase migration repair --status applied 20261106100000 20261106100100 20261106100200 20261106100300 \
+  20261106100400 20261106100500 20261106100600 20261106100700 20261106100800 20261106100900 \
+  20261106220000 20261106240000 20261106250000 20261106260000 20261106900000
+```
+
 ## 1. Supabase
 
 1. **Projekt anlegen**: Region **Zürich (eu-central-2)**, starkes Datenbankpasswort.
@@ -29,8 +57,9 @@ Leeres privates Repository anlegen und den Code pushen (`main`). Vercel deployt 
 
 ## 3. Vercel
 
-1. Projekt aus dem GitHub-Repository erstellen (Framework: Next.js, Node 22).
-2. **Umgebungsvariablen** (Production und Preview, siehe `.env.example`):
+1. Projekt aus dem GitHub-Repository erstellen (Framework: Next.js, Node 22 oder neuer).
+2. **Umgebungsvariablen** (Project → Settings → Environment Variables; Production und Preview, siehe `.env.example`).
+   Zufallswerte z. B. mit `openssl rand -base64 32` erzeugen. Nach dem Setzen neu deployen, weil `NEXT_PUBLIC_*` beim Build eingesetzt wird.
 
 | Variable | Pflicht | Hinweis |
 |---|---|---|
@@ -44,8 +73,9 @@ Leeres privates Repository anlegen und den Code pushen (`main`). Vercel deployt 
 | `ANTHROPIC_MODEL` | nein | Standard siehe `src/lib/ai` |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO` | für E-Mails | Absenderdomain bei Resend verifizieren |
 | `IMAGE_AI_PROVIDER` | nein | Noch kein Anbieter angebunden |
+| `VALUATION_AVM_PROVIDER` | nein | Lizenzierter Bewertungsanbieter, noch nicht angebunden |
 
-3. **Cron**: `vercel.json` ruft `/api/cron/process` täglich auf (Hobby-Plan erlaubt nur tägliche Crons). E-Mails und Jobs werden zusätzlich direkt nach der auslösenden Aktion verarbeitet. Auf dem Pro-Plan das Intervall auf z. B. `*/10 * * * *` verkürzen.
+3. **Cron**: `vercel.json` ruft `/api/cron/process?scheduled=1` täglich auf (Hobby-Plan erlaubt nur tägliche Crons): Jobs, E-Mails, Erinnerungen, Zusammenfassungen, Aufräumen. E-Mails und Jobs werden zusätzlich direkt nach der auslösenden Aktion verarbeitet. Damit gebündelte Nachrichten-E-Mails (3 Minuten Verzögerung) nicht bis zum nächsten Tag liegen bleiben, zusätzlich den 5-Minuten-Takt über Supabase einrichten (Abschnitt 7).
 4. **Region**: Functions in `fra1` (nächstgelegen zu Supabase Zürich).
 5. **Deployment prüfen**: Registrierung inkl. Bestätigungs-E-Mail, Login, Immobilie erfassen, Bild hochladen, Inserat veröffentlichen, Suche, Anfrage, Chat, Besichtigung, Dossier-PDF, Admin-Bereich.
 
@@ -60,7 +90,44 @@ Leeres privates Repository anlegen und den Code pushen (`main`). Vercel deployt 
 
 `supabase/seed.sql` im SQL Editor einer **Entwicklungsdatenbank** ausführen. Das Skript bricht ab, sobald echte Inserate existieren. Entfernen mit `supabase/demo-cleanup.sql`. Demo-Konten und Passwort stehen im Kopf von `seed.sql`.
 
-## 6. Kosten (Stand Planung, bitte selbst prüfen)
+## 6. Deployment-Schutz und Livegang
+
+Das Vercel-Projekt ist mit «Vercel Authentication» (Standard des Teams) geschützt: Alle `*.vercel.app`-Adressen verlangen ein Vercel-Login, nur eigene Domains sind öffentlich. Für Tests ist das ideal. Für den Livegang:
+
+1. Eigene Domain verbinden (Abschnitt 4) **oder** unter Project → Settings → Deployment Protection den Schutz auf «Preview Deployments» einschränken.
+2. Supabase Auth: Site URL und Redirect URLs auf die öffentliche Adresse setzen, SMTP (Resend) und E-Mail-Vorlagen einrichten.
+3. `LEGAL_PAGES_ARE_DRAFTS` in `src/lib/content/legal.ts` erst auf `false` setzen, wenn Impressum, Datenschutz und AGB rechtlich geprüft und ergänzt sind.
+4. Kartenstil: Bewilligung von swisstopo für die kommerzielle Nutzung klären (siehe `docs/ARCHITEKTUR.md`).
+5. `develop` nach `main` mergen → Produktions-Deployment.
+
+## 7. Hintergrundverarbeitung alle 5 Minuten (Supabase Cron)
+
+Erst einrichten, wenn die Produktionsadresse öffentlich erreichbar ist (eigene Domain oder Schutz nur für Previews), sonst blockiert der Deployment-Schutz die Aufrufe. Im SQL Editor (Erweiterungen `pg_cron` und `pg_net` unter Database → Extensions aktivieren):
+
+```sql
+-- gleicher Wert wie CRON_SECRET in Vercel
+select vault.create_secret('<CRON_SECRET>', 'immovia_cron_secret');
+
+-- alle 5 Minuten: Jobs nachholen und E-Mails versenden
+select cron.schedule('immovia-process', '*/5 * * * *', $$
+  select net.http_get(
+    url := 'https://<domain>/api/cron/process',
+    headers := jsonb_build_object('Authorization', 'Bearer ' ||
+      (select decrypted_secret from vault.decrypted_secrets where name = 'immovia_cron_secret'))
+  );
+$$);
+
+-- stündlich: Erinnerungen, Zusammenfassungen, Aufräumen
+select cron.schedule('immovia-scheduled', '17 * * * *', $$
+  select net.http_get(
+    url := 'https://<domain>/api/cron/process?scheduled=1',
+    headers := jsonb_build_object('Authorization', 'Bearer ' ||
+      (select decrypted_secret from vault.decrypted_secrets where name = 'immovia_cron_secret'))
+  );
+$$);
+```
+
+## 8. Kosten (Stand Planung, bitte selbst prüfen)
 
 | Dienst | Kosten |
 |---|---|
