@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { AppProviders } from "@/components/providers/app-providers";
+import { ServiceWorkerRegistration } from "@/components/providers/service-worker";
 import { publicEnv } from "@/lib/env";
 import { SITE } from "@/lib/constants";
 import "./globals.css";
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Zum Inhalt springen
         </a>
         <AppProviders>{children}</AppProviders>
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );
