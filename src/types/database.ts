@@ -3120,6 +3120,10 @@ export type Database = {
         Args: { p_token: string };
         Returns: string;
       };
+      admin_ai_usage_summary: {
+        Args: { p_days?: number };
+        Returns: Json;
+      };
       admin_get_report_target: {
         Args: { p_report_id: string };
         Returns: Json;
@@ -3131,6 +3135,28 @@ export type Database = {
       admin_platform_stats: {
         Args: never;
         Returns: Json;
+      };
+      admin_search_users: {
+        Args: { p_query?: string; p_status?: Database["public"]["Enums"]["user_status"]; p_role?: Database["public"]["Enums"]["app_role"]; p_user_id?: string; p_limit?: number; p_offset?: number };
+        Returns: {
+          id: string | null;
+          email: string | null;
+          display_name: string | null;
+          first_name: string | null;
+          last_name: string | null;
+          phone: string | null;
+          account_type: Database["public"]["Enums"]["account_type"] | null;
+          status: Database["public"]["Enums"]["user_status"] | null;
+          status_reason: string | null;
+          status_changed_at: string | null;
+          created_at: string | null;
+          last_sign_in_at: string | null;
+          email_confirmed: boolean | null;
+          roles: Database["public"]["Enums"]["app_role"][] | null;
+          identity_verified: boolean | null;
+          listing_count: number | null;
+          total_count: number | null;
+        }[];
       };
       admin_set_org_status: {
         Args: { p_org_id: string; p_status: string; p_reason?: string };
@@ -3147,6 +3173,14 @@ export type Database = {
       admin_set_verification: {
         Args: { p_subject_type: string; p_subject_id: string; p_kind: Database["public"]["Enums"]["verification_kind"]; p_status: Database["public"]["Enums"]["verification_status"]; p_method?: string; p_notes?: string };
         Returns: string;
+      };
+      admin_timeseries: {
+        Args: { p_days?: number };
+        Returns: Json;
+      };
+      admin_update_contact_request: {
+        Args: { p_request_id: string; p_status: string };
+        Returns: undefined;
       };
       admin_update_report: {
         Args: { p_report_id: string; p_status: Database["public"]["Enums"]["report_status"]; p_note?: string };
@@ -3277,6 +3311,22 @@ export type Database = {
           lead_status: Database["public"]["Enums"]["lead_status"] | null;
         }[];
       };
+      get_organization_invitation: {
+        Args: { p_token: string };
+        Returns: Json;
+      };
+      get_organization_members: {
+        Args: { p_org: string };
+        Returns: {
+          user_id: string | null;
+          role: Database["public"]["Enums"]["org_role"] | null;
+          display_name: string | null;
+          avatar_path: string | null;
+          email: string | null;
+          joined_at: string | null;
+          is_me: boolean | null;
+        }[];
+      };
       get_owner_overview: {
         Args: never;
         Returns: Json;
@@ -3351,6 +3401,10 @@ export type Database = {
         Args: { p_appointment_id: string; p_new_slot_id: string };
         Returns: undefined;
       };
+      my_saved_search_count: {
+        Args: never;
+        Returns: number;
+      };
       notify_user: {
         Args: { p_user: string; p_type: string; p_title: string; p_body: string; p_link: string; p_data?: Json; p_group_key?: string };
         Returns: undefined;
@@ -3377,6 +3431,10 @@ export type Database = {
       };
       revoke_document_access: {
         Args: { p_grant_id: string };
+        Returns: undefined;
+      };
+      revoke_organization_invitation: {
+        Args: { p_invitation_id: string };
         Returns: undefined;
       };
       saved_search_matches_listing: {
@@ -3434,6 +3492,10 @@ export type Database = {
       submit_contact_request: {
         Args: { p_name: string; p_email: string; p_subject: string; p_message: string };
         Returns: string;
+      };
+      transfer_organization_ownership: {
+        Args: { p_org: string; p_new_owner: string };
+        Returns: undefined;
       };
       try_uuid: {
         Args: { p_value: string };
