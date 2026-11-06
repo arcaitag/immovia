@@ -68,4 +68,4 @@ Leeres privates Repository anlegen und den Code pushen (`main`). Vercel deployt 
 | Vercel | Hobby gratis (nicht für kommerzielle Nutzung), Pro ab ca. 20 USD/Monat und Mitglied |
 | Anthropic | nutzungsabhängig; Kontingente pro Benutzer in den Admin-Einstellungen |
 | Resend | Free bis 3000 E-Mails/Monat |
-| swisstopo/geo.admin.ch | gratis mit Quellenangabe |
+| swisstopo/geo.admin.ch | gratis mit Quellenangabe; für kommerzielle Nutzung des Kartenstils Bewilligung von swisstopo einholen |

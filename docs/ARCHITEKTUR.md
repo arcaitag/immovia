@@ -11,7 +11,7 @@ Stand: 6. November 2026. Dieses Dokument hält die Architekturentscheide fest. D
 | Styling | Tailwind CSS 4, eigene Design Tokens, Komponenten im shadcn/ui-Stil auf Radix | Volle Kontrolle über das Design, keine Template-Optik |
 | Formulare | React Hook Form + Zod 4 | Dieselben Zod-Schemas validieren Client **und** Server |
 | Daten | Supabase (PostgreSQL 17, Auth, Storage, Realtime) mit `@supabase/ssr` | RLS als zweite Sicherheitslinie unter der Server-Logik |
-| Karten & Orte | MapLibre GL + swisstopo-Vektorkarte (`vectortiles.geo.admin.ch`), Ortssuche über `api3.geo.admin.ch` SearchServer | Offizielle Schweizer Geodaten (OGD, frei nutzbar mit Quellenangabe «© swisstopo»), kein API-Key |
+| Karten & Orte | MapLibre GL + swisstopo-Vektorkarte (Stil `https://vectortiles.geo.admin.ch/styles/ch.swisstopo.lightbasemap.vt/style.json`), Ortssuche über `api3.geo.admin.ch` SearchServer | Offizielle Schweizer Geodaten mit Quellenangabe «© swisstopo», kein API-Key. **Lizenz vor dem Livegang klären:** Laut opendata.swiss ist der Kartenstil «Open use, must provide the source; use for commercial purposes requires permission of the data owner» – für eine kommerzielle Plattform Bewilligung bei swisstopo einholen oder einen eigenen Stil auf den OGD-Daten verwenden. |
 | PDF | `@react-pdf/renderer` serverseitig | Läuft in Vercel Functions ohne Chromium, echte Vektor-PDFs |
 | Bilder | `sharp` serverseitig, austauschbare Provider-Schnittstelle für Bild-KI | Grundkorrekturen funktionieren ohne externe KI |
 | KI-Text | Anthropic Claude über `@anthropic-ai/sdk`, austauschbare Provider-Schicht | Strukturierte, mit Zod validierte Ausgaben |
@@ -81,6 +81,6 @@ Alle Tabellen: UUID-Primärschlüssel, `created_at`/`updated_at`, Foreign Keys m
 | Vercel | Hosting | Hobby gratis (nicht für kommerzielle Nutzung), Pro ab ca. 20 USD/Monat |
 | Anthropic | KI-Texte, Erklärungen, Assistent | nutzungsabhängig pro Token, Kontingente in `feature_settings` |
 | Resend | Transaktions-E-Mails, SMTP für Supabase Auth | Free bis 3000 Mails/Monat, danach kostenpflichtig |
-| swisstopo / geo.admin.ch | Karten, Ortssuche | gratis (OGD), Quellenangabe Pflicht, Fair-Use |
+| swisstopo / geo.admin.ch | Karten, Ortssuche | gratis, Quellenangabe Pflicht, Fair-Use; kommerzielle Nutzung des Kartenstils bewilligungspflichtig (siehe oben) |
 | Bild-KI (optional) | Perspektive, virtuelle Möblierung | anbieterabhängig, noch nicht angebunden |
 | Lizenzierte Marktdaten (optional) | belastbare Bewertungen | kostenpflichtig, Anbieter noch offen |

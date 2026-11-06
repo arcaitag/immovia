@@ -45,7 +45,12 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  React.useEffect(() => setOpen(false), [pathname]);
+  // Mobiles Menü nach einer Navigation schliessen (Zustand während des Renderns anpassen statt im Effect)
+  const [menuPathname, setMenuPathname] = React.useState(pathname);
+  if (menuPathname !== pathname) {
+    setMenuPathname(pathname);
+    setOpen(false);
+  }
 
   return (
     <header

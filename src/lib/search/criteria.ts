@@ -101,18 +101,27 @@ export interface SearchState {
 
 type ParamSource = URLSearchParams | Record<string, string | string[] | undefined>;
 
-function getAll(source: ParamSource, key: string): string[] {
-  if (source instanceof URLSearchParams) return source.getAll(key).flatMap((v) => v.split(","));
-  const value = source[key];
-  if (value === undefined) return [];
-  return (Array.isArray(value) ? value : [value]).flatMap((v) => v.split(","));
+/**
+ * Alle Werte eines Parameters. Nur Listenparameter (typ, zustand) werden zusätzlich an Kommas
+ * getrennt – Freitext wie «Bern, Länggasse» in ort oder q bleibt vollständig erhalten.
+ */
+function getAll(source: ParamSource, key: string, splitCommas = false): string[] {
+  const values =
+    source instanceof URLSearchParams
+      ? source.getAll(key)
+      : source[key] === undefined
+        ? []
+        : Array.isArray(source[key])
+          ? (source[key] as string[])
+          : [source[key] as string];
+  return splitCommas ? values.flatMap((v) => v.split(",")) : values;
 }
 
 /** Liest Suchparameter aus der URL. Ungültige Werte werden verworfen statt Fehler zu werfen. */
 export function parseSearchParams(source: ParamSource, defaults: Partial<SearchCriteria> = {}): SearchState {
   const raw: Record<string, unknown> = { ...defaults };
   for (const [param, key] of Object.entries(PARAM_KEYS)) {
-    const values = getAll(source, param).filter((v) => v !== "");
+    const values = getAll(source, param, ARRAY_KEYS.has(key)).filter((v) => v !== "");
     if (!values.length) continue;
     raw[key] = ARRAY_KEYS.has(key) ? values : values[0];
   }
