@@ -20,7 +20,7 @@ export const FAQ: FaqItem[] = [
   },
   {
     category: "bewertung",
-    question: "Wie genau ist die KI-Immobilienbewertung?",
+    question: "Wie genau ist die Immobilienbewertung?",
     answer:
       "Die Bewertung zeigt immer, auf welchen Daten sie beruht und wie sicher sie ist. Solange keine lizenzierten Transaktionsdaten angebunden sind, vergleicht Immovia mit Angebotspreisen ähnlicher, echter Inserate auf der Plattform. Gibt es zu wenige Vergleichsobjekte, zeigen wir bewusst keine Zahl. Eine Bewertung ersetzt kein Gutachten.",
   },

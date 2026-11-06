@@ -28,7 +28,7 @@ export default async function DossiersOverviewPage() {
         .in("property_id", ids)
         .order("version", { ascending: false })
         .limit(1000)
-    : { data: [] };
+    : { data: null };
   const byProperty = new Map<string, NonNullable<typeof dossiers>>();
   for (const d of dossiers ?? []) {
     const list = byProperty.get(d.property_id) ?? [];

@@ -37,7 +37,7 @@ export default async function ImageStudioOverviewPage({
         .eq("status", "ready")
         .order("sort_order", { ascending: true })
         .limit(1000)
-    : { data: [] };
+    : { data: null };
   const byProperty = new Map<string, NonNullable<typeof images>>();
   for (const image of images ?? []) {
     const list = byProperty.get(image.property_id) ?? [];

@@ -34,7 +34,7 @@ export const DASHBOARD_NAV: { title?: string; items: DashboardNavItem[] }[] = [
     items: [
       { href: "/dashboard/immobilien", label: "Meine Immobilien", icon: House },
       { href: "/dashboard/immobilien/neu", label: "Neue Immobilie", icon: HousePlus, exact: true },
-      { href: "/dashboard/bewertungen", label: "KI-Bewertung", icon: Gauge },
+      { href: "/dashboard/bewertungen", label: "Bewertungen", icon: Gauge },
       { href: "/dashboard/dossiers", label: "Verkaufsdossiers", icon: FileText },
       { href: "/dashboard/bilderstudio", label: "Bilderstudio", icon: ImageIcon },
     ],

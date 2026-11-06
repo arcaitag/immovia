@@ -117,6 +117,11 @@
   * {
     @apply border-border;
   }
+  /* Grids ohne explizite Spalten (gestapelte Inhalte) dürfen nicht über ihren Container hinauswachsen,
+     z. B. durch abgeschnittene Texte (truncate) oder horizontal scrollende Leisten. grid-cols-* überschreibt das. */
+  :where(.grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;

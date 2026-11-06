@@ -128,18 +128,18 @@ export function DossierStudio({
   // Vorschau: per fetch geladen und als Blob-URL angezeigt (die Seite darf nicht direkt eingebettet
   // werden, X-Frame-Options: DENY). Aktualisiert wird beim Vorlagenwechsel und auf Knopfdruck.
   const [previewEncoded, setPreviewEncoded] = React.useState(encoded);
-  const [preview, setPreview] = React.useState<{ url: string | null; loading: boolean; error: string | null; skipped: number }>({
+  const [preview, setPreview] = React.useState<{ key: string | null; url: string | null; error: string | null; skipped: number }>({
+    key: null,
     url: null,
-    loading: true,
     error: null,
     skipped: 0,
   });
+  const objectUrlRef = React.useRef<string | null>(null);
   const previewApiUrl = `/api/dossiers/preview?propertyId=${propertyId}&options=${previewEncoded}`;
+  const previewLoading = preview.key !== previewApiUrl;
 
   React.useEffect(() => {
     const controller = new AbortController();
-    let objectUrl: string | null = null;
-    setPreview((current) => ({ ...current, loading: true, error: null }));
     fetch(previewApiUrl, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) {
@@ -147,18 +147,28 @@ export function DossierStudio({
           throw new Error(body?.error ?? "Die Vorschau konnte nicht erstellt werden.");
         }
         const skipped = Number(response.headers.get("X-Skipped-Images") ?? "0") || 0;
-        objectUrl = URL.createObjectURL(await response.blob());
-        setPreview({ url: objectUrl, loading: false, error: null, skipped });
+        const blob = await response.blob();
+        if (controller.signal.aborted) return;
+        // Vorherige Vorschau erst freigeben, wenn die neue bereitsteht
+        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+        const url = URL.createObjectURL(blob);
+        objectUrlRef.current = url;
+        setPreview({ key: previewApiUrl, url, error: null, skipped });
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
-        setPreview((current) => ({ ...current, loading: false, error: error instanceof Error ? error.message : "Die Vorschau konnte nicht erstellt werden." }));
+        const message = error instanceof Error ? error.message : "Die Vorschau konnte nicht erstellt werden.";
+        setPreview((current) => ({ ...current, key: previewApiUrl, error: message }));
       });
-    return () => {
-      controller.abort();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
+    return () => controller.abort();
   }, [previewApiUrl]);
+
+  React.useEffect(
+    () => () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    },
+    [],
+  );
 
   const job = useJob(jobId, {
     onSuccess: (finished) => {
@@ -361,7 +371,7 @@ export function DossierStudio({
             Vorschau
           </h3>
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant={previewOutdated ? "default" : "outline"} onClick={() => setPreviewEncoded(encoded)} disabled={preview.loading && !previewOutdated}>
+            <Button size="sm" variant={previewOutdated ? "default" : "outline"} onClick={() => setPreviewEncoded(encoded)} disabled={previewLoading && !previewOutdated}>
               <RefreshCcw aria-hidden /> Vorschau aktualisieren
             </Button>
             <Button size="sm" variant="outline" asChild>
@@ -377,12 +387,12 @@ export function DossierStudio({
         ) : null}
         <div className="relative aspect-[1/1.414] w-full overflow-hidden rounded-2xl border border-border bg-muted">
           {preview.url ? <iframe src={preview.url} title="Vorschau des Verkaufsdossiers (PDF)" className="size-full" /> : null}
-          {preview.loading ? (
+          {previewLoading ? (
             <div className="absolute inset-0 flex items-center justify-center gap-2 bg-card/70 text-sm text-muted-foreground">
               <Spinner label="Vorschau wird erstellt" /> <span aria-hidden>Vorschau wird erstellt …</span>
             </div>
           ) : null}
-          {preview.error && !preview.loading ? (
+          {preview.error && !previewLoading ? (
             <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-destructive" role="alert">
               {preview.error}
             </div>

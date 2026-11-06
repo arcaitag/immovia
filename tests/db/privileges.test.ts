@@ -66,6 +66,7 @@ const INTERNAL_FUNCTIONS = [
 const DELETE_TABLES = [
   "assistant_threads",
   "favorites",
+  "generated_dossiers",
   "lead_notes",
   "notifications",
   "organization_members",

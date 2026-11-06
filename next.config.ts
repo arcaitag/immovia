@@ -21,6 +21,10 @@ const nextConfig: NextConfig = {
     qualities: [60, 75, 85],
   },
   serverExternalPackages: ["sharp", "@react-pdf/renderer"],
+  // Schriften für PDF-Dossiers und Bewertungsberichte (werden zur Laufzeit von der Platte gelesen)
+  outputFileTracingIncludes: {
+    "/**": ["./src/lib/pdf/fonts/**"],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",

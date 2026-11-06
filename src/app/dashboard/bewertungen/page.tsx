@@ -29,7 +29,7 @@ export default async function ValuationsOverviewPage() {
         .in("property_id", ids)
         .order("created_at", { ascending: false })
         .limit(500)
-    : { data: [] };
+    : { data: null };
   const latest = new Map<string, NonNullable<typeof valuations>[number]>();
   const counts = new Map<string, number>();
   for (const v of valuations ?? []) {

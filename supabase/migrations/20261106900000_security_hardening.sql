@@ -36,7 +36,7 @@ declare
   delete_allowed text[] := array[
     'properties', 'property_features', 'property_renovations', 'property_images', 'favorites',
     'saved_searches', 'user_blocks', 'lead_notes', 'viewing_slots', 'viewing_appointment_notes',
-    'notifications', 'assistant_threads', 'organization_members'
+    'notifications', 'assistant_threads', 'organization_members', 'generated_dossiers'
   ];
 begin
   for t in
@@ -93,11 +93,10 @@ $$;
 
 -- 4. Policies -----------------------------------------------------------------------------------
 -- listings: je eine Policy pro Rolle statt zwei permissiver Policies für authenticated
-drop policy listings_select_public on public.listings;
-drop policy listings_select_manage on public.listings;
-create policy listings_select_public on public.listings for select to anon
+alter policy listings_select_public on public.listings to anon
   using (status in ('published', 'reserved') and moderation_status <> 'blocked' and deleted_at is null);
-create policy listings_select_authenticated on public.listings for select to authenticated
+alter policy listings_select_manage on public.listings rename to listings_select_authenticated;
+alter policy listings_select_authenticated on public.listings to authenticated
   using (
     (status in ('published', 'reserved') and moderation_status <> 'blocked' and deleted_at is null)
     or owner_id = (select auth.uid())
@@ -106,8 +105,7 @@ create policy listings_select_authenticated on public.listings for select to aut
   );
 
 -- properties: Bedingung direkt auf der Zeile, damit INSERT … RETURNING die neue Zeile sieht
-drop policy properties_select on public.properties;
-create policy properties_select on public.properties for select to authenticated
+alter policy properties_select on public.properties
   using (
     (deleted_at is null and (
       owner_id = (select auth.uid())

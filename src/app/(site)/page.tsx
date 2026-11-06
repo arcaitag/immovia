@@ -46,7 +46,7 @@ const TRUST = [
 
 const STEPS = [
   { icon: HousePlus, title: "Immobilie erfassen", text: "Ein geführter Assistent fragt nur, was für Ihren Objekttyp wichtig ist – mit automatischem Zwischenspeichern." },
-  { icon: Gauge, title: "Wert einschätzen", text: "Die KI-Bewertung zeigt Preisspanne, Einflussfaktoren und Datenquellen – oder sagt ehrlich, wenn die Daten nicht reichen." },
+  { icon: Gauge, title: "Wert einschätzen", text: "Die Bewertung zeigt Preisspanne, Einflussfaktoren und Datenquellen – oder sagt ehrlich, wenn die Daten nicht reichen." },
   { icon: FileText, title: "Professionell präsentieren", text: "Optimierte Bilder, KI-Texte und ein Verkaufsdossier im Makler-Look entstehen mit wenigen Klicks." },
   { icon: MessageSquare, title: "Interessenten verwalten", text: "Anfragen, Nachrichten und Besichtigungen laufen an einem Ort zusammen – bis zum Abschluss." },
 ];
@@ -93,7 +93,7 @@ export default async function HomePage() {
               </span>
             </h1>
             <p className="mt-7 max-w-xl text-lg leading-relaxed text-foreground/75">
-              Von der KI-Immobilienbewertung über die professionelle Verkaufsdokumentation bis zur Kommunikation mit
+              Von der datenbasierten Immobilienbewertung über die professionelle Verkaufsdokumentation bis zur Kommunikation mit
               Interessenten. Alles an einem Ort.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -230,13 +230,13 @@ export default async function HomePage() {
           </h2>
         </div>
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
-          {/* KI-Bewertung */}
+          {/* Bewertung */}
           <article className="flex flex-col rounded-3xl border border-border bg-white p-7 shadow-card">
             <div className="flex items-center gap-3">
               <span className="flex size-11 items-center justify-center rounded-2xl bg-mint-100 text-forest">
                 <Gauge className="size-5" aria-hidden />
               </span>
-              <h3 className="font-display text-xl font-bold">KI-Immobilienbewertung</h3>
+              <h3 className="font-display text-xl font-bold">Datenbasierte Immobilienbewertung</h3>
             </div>
             <p className="mt-3 text-muted-foreground">
               Preisspanne, möglicher Inseratepreis und die wichtigsten Wertfaktoren – mit offengelegten Datenquellen.

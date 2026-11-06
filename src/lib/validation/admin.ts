@@ -363,7 +363,7 @@ export const SETTING_SECTIONS: Record<SettingKey, { title: string; description: 
 };
 
 export const FEATURE_FLAGS: Record<keyof FeatureSection, { label: string; description: string }> = {
-  valuation: { label: "KI-Immobilienbewertung", description: "Bewertungen im Verkaufsassistenten und auf /bewerten." },
+  valuation: { label: "Immobilienbewertung", description: "Bewertungen im Verkaufsassistenten und auf /bewerten." },
   ai_descriptions: { label: "KI-Texte für Inserate", description: "Beschreibungen und Highlights mit KI erstellen." },
   image_ai: { label: "KI-Bildbearbeitung", description: "Optimierung und Visualisierungen im Bilderstudio." },
   assistant: { label: "KI-Assistent", description: "Chat-Assistent im Dashboard." },

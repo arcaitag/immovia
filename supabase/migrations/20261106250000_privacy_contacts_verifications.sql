@@ -64,8 +64,7 @@ $$;
 grant execute on function public.get_listing_public_contact(uuid) to anon, authenticated, service_role;
 
 -- 2. Öffentliche Prüfvermerke ohne interne Angaben -------------------------------------------
-drop policy verifications_select on public.verifications;
-create policy verifications_select on public.verifications for select to authenticated
+alter policy verifications_select on public.verifications to authenticated
   using (
     public.is_moderator()
     or (subject_type = 'user' and subject_id = (select auth.uid()))
@@ -114,7 +113,6 @@ revoke execute on function public.cleanup_email_outbox() from public, anon, auth
 grant execute on function public.cleanup_email_outbox() to service_role;
 
 -- 5. Eigene Dokument-Uploads ohne Datensatz lesbar (für Aufräumen nach Abbruch) ----------------
-drop policy "immovia documents read" on storage.objects;
-create policy "immovia documents read" on storage.objects for select to anon, authenticated
+alter policy "immovia documents read" on storage.objects
   using (bucket_id = 'documents'
     and (public.can_read_document_object(name) or owner_id = (select auth.uid())::text));
