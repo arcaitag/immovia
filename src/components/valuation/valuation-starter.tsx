@@ -3,10 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CircleCheck, CircleDashed, Gauge, TriangleAlert } from "lucide-react";
+import { CircleCheck, CircleDashed, Gauge, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { AiUnavailableNotice, QuotaHint, type AvailabilityView } from "@/components/ai/ai-notice";
+import { AiConsentDialog, useAiConsent } from "@/components/ai/consent-dialog";
 import { JobProgress } from "@/components/ai/job-progress";
 import { useJob } from "@/components/ai/use-job";
 import { startValuationAction } from "@/app/dashboard/immobilien/[id]/bewertung/actions";
@@ -21,6 +22,7 @@ export function ValuationStarter({
   availability,
   hasValuation,
   editHref,
+  explanation,
 }: {
   propertyId: string;
   items: PrerequisiteItem[];
@@ -28,8 +30,11 @@ export function ValuationStarter({
   availability: AvailabilityView;
   hasValuation: boolean;
   editHref: string;
+  /** Zusätzliche KI-Erklärung: möglich, nur mit Einwilligung oder nicht verfügbar (KI nicht konfiguriert) */
+  explanation: "available" | "needs_consent" | "unavailable";
 }) {
   const router = useRouter();
+  const consent = useAiConsent(explanation === "needs_consent");
   const [jobId, setJobId] = React.useState<string | null>(null);
   const [pending, startTransition] = React.useTransition();
   const { job, running } = useJob(jobId, {
@@ -96,9 +101,24 @@ export function ValuationStarter({
           </Link>
         </p>
       ) : null}
+      {explanation === "needs_consent" && consent.required ? (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          <Sparkles className="size-4 text-forest" aria-hidden />
+          Die Berechnung braucht keine KI. Auf Wunsch formuliert eine KI zusätzlich eine Erklärung in Worten – nur mit Ihrer Einwilligung.
+          <Button variant="link" size="sm" className="h-auto" onClick={() => consent.guard(() => router.refresh())}>
+            KI-Erklärung aktivieren
+          </Button>
+        </p>
+      ) : explanation !== "unavailable" ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Sparkles className="size-4 text-forest" aria-hidden />
+          Zusätzlich formuliert eine KI eine Erklärung in Worten – ausschliesslich aus den berechneten Daten.
+        </p>
+      ) : null}
       <AiUnavailableNotice availability={availability} />
       {availability.available ? <QuotaHint quota={availability.quota} /> : null}
       <JobProgress job={job} running={running} label="Bewertung wird berechnet" />
+      <AiConsentDialog {...consent.dialogProps} />
     </div>
   );
 }

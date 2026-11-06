@@ -8,8 +8,10 @@ import { createPublicClient } from "@/lib/supabase/public";
 import { checkValuationPrerequisites } from "@/lib/valuation/prerequisites";
 import { externalAvmStatus } from "@/lib/valuation/providers/external-avm";
 import { isUuid } from "@/lib/utils";
+import { isAiConfigured } from "@/lib/ai/provider";
+import { stepHref } from "@/lib/properties/steps";
 import { getPropertyWorkspace, propertyStepTitle } from "@/services/properties";
-import { getFeatureAvailability } from "@/services/ai/access";
+import { getFeatureAvailability, hasAiConsent } from "@/services/ai/access";
 import { toValuationSubject } from "@/services/ai/property-data";
 import { loadAiSettings } from "@/services/ai/settings";
 
@@ -74,6 +76,8 @@ export default async function ValuationPage({
     settings,
   });
   const rent = ws.property.offer_type === "rent";
+  // Die Bewertung selbst ist rein rechnerisch; nur die zusätzliche KI-Erklärung braucht die Einwilligung
+  const explanation = !isAiConfigured() ? "unavailable" : (await hasAiConsent(supabase, ws.user.id)) ? "available" : "needs_consent";
 
   return (
     <div className="grid gap-6">
@@ -88,7 +92,8 @@ export default async function ValuationPage({
         ready={prerequisites.ready}
         availability={availability}
         hasValuation={list.length > 0}
-        editHref={`/dashboard/immobilien/${ws.property.id}/bearbeiten`}
+        editHref={stepHref(ws.property.id, "erfassen")}
+        explanation={explanation}
       />
       {detail ? <ValuationResult detail={detail} rent={rent} publicSlugs={publicSlugs} /> : null}
       {list.length > 1 ? <ValuationHistory items={list} selectedId={selectedId} propertyId={ws.property.id} rent={rent} /> : null}
