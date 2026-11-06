@@ -61,7 +61,7 @@ export function PropertyStepNav({ propertyId, states }: { propertyId: string; st
 
   return (
     <nav aria-label="Schritte des Verkaufsassistenten" className="-mx-4 sm:mx-0">
-      <ol className="flex snap-x gap-2 overflow-x-auto px-4 pb-1 sm:px-0 lg:grid lg:grid-cols-8 lg:overflow-visible">
+      <ol className="flex snap-x gap-2 overflow-x-auto px-4 pb-1 sm:px-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:pb-0">
         {PROPERTY_STEPS.map((step) => {
           const state = liveStates[step.key];
           const current = step.key === currentKey;
