@@ -1,0 +1,26 @@
+# Abhängigkeiten
+/node_modules
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Tests
+/coverage
+/playwright-report/
+/test-results/
+/blob-report/
+
+# Umgebung (niemals committen)
+.env
+.env.local
+.env.*.local
+.env.production
+.vercel
+
+# System
+.DS_Store
+*.log
+npm-debug.log*

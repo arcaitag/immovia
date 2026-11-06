@@ -1,0 +1,229 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* =============================================================================
+   Immovia Design Tokens
+   Markenfarben gemäss Gestaltungsvorgabe. --primary ist minimal dunkler als das
+   Markengrün, damit weisse Schrift auf Buttons WCAG 2.2 AA (4.5:1) erfüllt.
+   ============================================================================= */
+:root {
+  --background: #ffffff;
+  --foreground: #192820;
+  --surface: #f8faf6;
+  --card: #ffffff;
+  --card-foreground: #192820;
+  --popover: #ffffff;
+  --popover-foreground: #192820;
+
+  --brand: #5a8a30;
+  --primary: #4f7a2a;
+  --primary-hover: #446a24;
+  --primary-foreground: #ffffff;
+  --forest: #274b32;
+  --mint-50: #f8faf6;
+  --mint-100: #eaf3df;
+  --mint-200: #d8ebc6;
+  --mint-300: #c2dea8;
+
+  --secondary: #eaf3df;
+  --secondary-hover: #dcebcb;
+  --secondary-foreground: #274b32;
+  --muted: #f3f6f1;
+  --muted-foreground: #69736d;
+  --accent: #eaf3df;
+  --accent-foreground: #274b32;
+
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --destructive-bg: #fef3f2;
+  --warning: #9a4b06;
+  --warning-bg: #fef6e7;
+  --success: #3f7a24;
+  --success-bg: #eef7e6;
+  --info: #1f5f8b;
+  --info-bg: #edf5fb;
+
+  --border: #e4eae1;
+  --input: #d9e1d5;
+  --ring: #5a8a30;
+  --radius: 0.875rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-brand: var(--brand);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-forest: var(--forest);
+  --color-mint-50: var(--mint-50);
+  --color-mint-100: var(--mint-100);
+  --color-mint-200: var(--mint-200);
+  --color-mint-300: var(--mint-300);
+  --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-bg: var(--destructive-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-manrope), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+
+  --shadow-card: 0 1px 2px rgb(25 40 32 / 0.04), 0 8px 24px -14px rgb(25 40 32 / 0.18);
+  --shadow-card-hover: 0 2px 4px rgb(25 40 32 / 0.05), 0 18px 36px -18px rgb(25 40 32 / 0.28);
+  --shadow-float: 0 1px 2px rgb(25 40 32 / 0.05), 0 24px 48px -24px rgb(25 40 32 / 0.28);
+
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv11", "ss03";
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display text-foreground;
+    letter-spacing: -0.02em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--mint-200);
+    color: var(--forest);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility container-page {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+  @media (width >= 40rem) {
+    padding-inline: 1.5rem;
+  }
+  @media (width >= 64rem) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Prosa für Ratgeber und Rechtstexte */
+@utility prose-immovia {
+  color: var(--foreground);
+  line-height: 1.7;
+  & h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-top: 2.25rem;
+    margin-bottom: 0.75rem;
+  }
+  & h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+  }
+  & p {
+    margin-block: 0.85rem;
+  }
+  & ul {
+    list-style: disc;
+    padding-left: 1.25rem;
+    margin-block: 0.85rem;
+  }
+  & ol {
+    list-style: decimal;
+    padding-left: 1.25rem;
+    margin-block: 0.85rem;
+  }
+  & li {
+    margin-block: 0.3rem;
+  }
+  & a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  & strong {
+    font-weight: 650;
+  }
+}
+
+/* MapLibre: Steuerelemente an das Design anpassen */
+.maplibregl-ctrl-group {
+  border-radius: 0.75rem !important;
+  box-shadow: var(--shadow-card) !important;
+  overflow: hidden;
+}
+.maplibregl-ctrl-attrib {
+  font-size: 11px;
+}
