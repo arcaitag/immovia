@@ -173,6 +173,7 @@ export async function removeInterestedFootprint(interestedId: string, ownerId: s
   await admin.from("leads").delete().eq("interested_id", interestedId);
   await admin.from("listing_inquiries").delete().eq("sender_id", interestedId);
   if (conversationIds.length) await admin.from("conversations").delete().in("id", conversationIds);
+  await admin.from("rate_limit_buckets").delete().like("key", `%:${interestedId}`);
 }
 
 /**
