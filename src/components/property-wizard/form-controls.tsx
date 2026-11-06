@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 export type PropertyForm = UseFormReturn<PropertyFormValues, unknown, PropertyFieldsData>;
 
 type FieldsOfType<T> = {
-  [K in keyof PropertyFormValues]-?: PropertyFormValues[K] extends T ? (T extends PropertyFormValues[K] ? K : never) : never;
+  [K in keyof PropertyFormValues]-?: PropertyFormValues[K] extends T ? K : never;
 }[keyof PropertyFormValues];
 
 export type StringField = FieldsOfType<string>;
@@ -81,8 +81,8 @@ export function TextField({
   info?: { title: string; text: React.ReactNode };
   required?: boolean;
   optional?: boolean;
-  prefix?: React.ReactNode;
-  suffix?: React.ReactNode;
+  prefix?: string;
+  suffix?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   placeholder?: string;
   maxLength?: number;

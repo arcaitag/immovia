@@ -11,6 +11,7 @@ import {
   type ListingModerationAction,
   type ModerationStatus,
   type ReportStatus,
+  type ReportTarget,
   type SettingKey,
   type UserStatus,
   type VerificationKind,
@@ -357,6 +358,7 @@ export interface ListingFilters {
   q?: string;
   status?: Enums<"listing_status">;
   moderation?: ModerationStatus;
+  ownerId?: string;
   page: number;
 }
 
@@ -372,6 +374,7 @@ export async function listListings(filters: ListingFilters): Promise<Paged<Admin
     .is("deleted_at", null);
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.moderation) query = query.eq("moderation_status", filters.moderation);
+  if (filters.ownerId) query = query.eq("owner_id", filters.ownerId);
   const q = filters.q ? sanitizeOrFilterValue(filters.q) : "";
   if (q) query = query.or(`title.ilike.%${q}%,municipality.ilike.%${q}%,postal_code.ilike.${q}%`);
   query =
@@ -609,19 +612,8 @@ export async function getOpenReports(limit = 5): Promise<AdminReportRow[]> {
   return (await listReports({ queue: "offen", page: 1 })).rows.slice(0, limit);
 }
 
-export interface ReportTarget {
-  type: string;
-  id: string | null;
-  title: string | null;
-  slug: string | null;
-  status: string | null;
-  moderationStatus: ModerationStatus | null;
-  ownerId: string | null;
-  senderId: string | null;
-  text: string | null;
-  createdAt: string | null;
-  exists: boolean;
-}
+
+export type { ReportTarget };
 
 export async function getReportTarget(reportId: string): Promise<ReportTarget> {
   const supabase = await createClient();

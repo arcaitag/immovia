@@ -135,7 +135,13 @@ export const searchAlertDigestTemplate = defineTemplate({
         { type: "paragraph", text: `Ihre ${period} Zusammenfassung für ${quoted(name, "")}:` },
         { type: "listings", items: toListingItems(data.listings, ctx) },
         ...(total > shown
-          ? [{ type: "paragraph" as const, muted: true, text: `${total - shown} weitere Treffer finden Sie in der Suche.` }]
+          ? [
+              {
+                type: "paragraph" as const,
+                muted: true,
+                text: total - shown === 1 ? "Einen weiteren Treffer finden Sie in der Suche." : `${total - shown} weitere Treffer finden Sie in der Suche.`,
+              },
+            ]
           : []),
         { type: "button", label: "Alle Treffer ansehen", url: ctx.url(data.search_path ?? "/dashboard/suchauftraege") },
         { type: "link", label: "Suchaufträge verwalten", url: ctx.url("/dashboard/suchauftraege") },

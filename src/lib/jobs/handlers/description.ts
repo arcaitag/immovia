@@ -27,7 +27,7 @@ export const descriptionJobInputSchema = z.object({
   section: z.enum(DESCRIPTION_SECTION_KEYS).optional(),
   currentText: z.string().max(12000).optional(),
   currentItems: z.array(z.string().max(200)).max(12).optional(),
-  baseVersionId: z.string().uuid().optional(),
+  baseVersionId: z.guid().optional(),
 });
 export type DescriptionJobInput = z.infer<typeof descriptionJobInputSchema>;
 

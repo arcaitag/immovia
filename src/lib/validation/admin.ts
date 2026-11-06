@@ -72,6 +72,21 @@ export const CONTACT_STATUS: Record<ContactStatus, { label: string; tone: Tone }
   spam: { label: "Spam", tone: "red" },
 };
 
+/** Vorschau des gemeldeten Inhalts (admin_get_report_target). */
+export interface ReportTarget {
+  type: string;
+  id: string | null;
+  title: string | null;
+  slug: string | null;
+  status: string | null;
+  moderationStatus: ModerationStatus | null;
+  ownerId: string | null;
+  senderId: string | null;
+  text: string | null;
+  createdAt: string | null;
+  exists: boolean;
+}
+
 export const AI_FEATURES: Record<AiFeature, string> = {
   description: "KI-Texte für Inserate",
   valuation_explanation: "Bewertungserklärungen",

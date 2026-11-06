@@ -56,7 +56,8 @@ async function loadListing(slug: string) {
   if (!listing) {
     const { data: availability } = await supabase.rpc("get_listing_availability", { p_slug: slug });
     if (availability === "sold" || availability === "rented" || availability === "unavailable") {
-      return { kind: "unavailable" as const, status: availability };
+      const status: "sold" | "rented" | "unavailable" = availability;
+      return { kind: "unavailable" as const, status };
     }
     return { kind: "not_found" as const };
   }

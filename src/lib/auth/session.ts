@@ -73,7 +73,8 @@ export async function requireModerator(): Promise<SessionUser> {
 
 export async function requireAdmin(): Promise<SessionUser> {
   const user = await requireUser("/admin");
-  if (!user.isAdmin) redirect("/dashboard");
+  // Moderatoren zurück in den für sie freigegebenen Admin-Bereich, alle anderen ins Dashboard
+  if (!user.isAdmin) redirect(user.isModerator ? "/admin" : "/dashboard");
   return user;
 }
 

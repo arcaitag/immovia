@@ -44,7 +44,8 @@ export async function deleteAccountAction(input: unknown): Promise<ActionResult<
     const parsed = deleteAccountSchema.safeParse(input);
     if (!parsed.success) throw validationError(parsed.error.flatten().fieldErrors);
     await deleteAccount(user.id);
-    revalidatePath("/", "layout");
+    // Kein revalidatePath: Die aktuelle Dashboard-Seite würde sonst ohne Sitzung neu gerendert
+    // und zum Login umleiten. Der Client navigiert selbst zur Startseite.
     return null;
   }, "Ihr Konto wurde gelöscht.");
 }

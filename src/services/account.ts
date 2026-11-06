@@ -266,6 +266,9 @@ export async function changePassword(user: SessionUser, currentPassword: string,
   if (signInError) {
     const code = signInError.code ?? "";
     if (code === "over_request_rate_limit" || signInError.status === 429) throw new AppError("rate_limited");
+    if (code === "email_not_confirmed") {
+      throw new AppError("invalid_state", "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.");
+    }
     const message = "Das aktuelle Passwort ist nicht korrekt.";
     throw validationError({ currentPassword: [message] }, message);
   }

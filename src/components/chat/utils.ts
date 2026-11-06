@@ -37,3 +37,14 @@ export function normalizeTimestamp(value: string): string {
   const time = Date.parse(iso);
   return Number.isNaN(time) ? value : new Date(time).toISOString();
 }
+
+/**
+ * Zeitstempel für conversation_participants.last_read_at: «gelesen bis einschliesslich dieser Nachricht».
+ * Mit Mikrosekunden wird der Originalwert verwendet; ohne (z. B. nach Umwandlung) 1 ms später,
+ * damit die Nachricht nicht wegen abgeschnittener Nachkommastellen ungelesen bleibt.
+ */
+export function readMarker(raw: string): string {
+  if (/\.\d{6}/.test(raw)) return raw;
+  const time = Date.parse(normalizeTimestamp(raw));
+  return Number.isNaN(time) ? raw : new Date(time + 1).toISOString();
+}

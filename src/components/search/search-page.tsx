@@ -79,6 +79,8 @@ export async function SearchPage({ params, routeOffer }: { params: RawSearchPara
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const heading = searchHeading(criteria);
   const returnTo = searchHref(snapshot);
+  // Karten-Ansichten nutzen die volle Breite grosser Bildschirme
+  const container = view === "liste" ? "container-page" : "mx-auto w-full max-w-[96rem] px-4 sm:px-6 lg:px-8";
 
   const listContent = (compact: boolean) => {
     if (failed) return null;
@@ -105,7 +107,7 @@ export async function SearchPage({ params, routeOffer }: { params: RawSearchPara
   return (
     <SearchProvider initial={snapshot} total={total} routeOffer={routeOffer}>
       <div className="border-b border-border bg-surface">
-        <div className={cn("container-page py-6 sm:py-8", view !== "liste" && "max-w-[96rem]")}>
+        <div className={cn(container, "py-6 sm:py-8")}>
           <h1 className="font-display text-[1.75rem] font-extrabold leading-tight tracking-tight sm:text-[2.1rem]">{heading.title}</h1>
           <p role="status" className="mt-1.5 text-[0.9375rem] text-muted-foreground">
             {failed ? "Die Suche ist momentan nicht verfügbar." : `${pluralize(total, "Immobilie", "Immobilien")} gefunden`}
@@ -114,7 +116,7 @@ export async function SearchPage({ params, routeOffer }: { params: RawSearchPara
         </div>
       </div>
 
-      <div className={cn("container-page py-6", view !== "liste" && "max-w-[96rem]")}>
+      <div className={cn(container, "py-6")}>
         <SearchToolbar />
         <div className="mt-4 empty:hidden">
           <ActiveFilters />

@@ -88,6 +88,12 @@ const DB_MESSAGES: Record<string, { code: ErrorCode; message: string }> = {
   invalid_email: { code: "validation", message: "Ungültige E-Mail-Adresse." },
   invalid_name: { code: "validation", message: "Bitte geben Sie einen Namen ein." },
   invalid_expiry: { code: "validation", message: "Das Ablaufdatum muss in der Zukunft liegen." },
+  invalid_status: { code: "validation", message: "Ungültiger Status." },
+  invalid_action: { code: "validation", message: "Diese Aktion ist nicht vorgesehen." },
+  invalid_kind: { code: "validation", message: "Diese Art von Prüfung ist hier nicht möglich." },
+  invalid_subject: { code: "not_found", message: "Das zu prüfende Konto oder Objekt wurde nicht gefunden." },
+  member_inactive: { code: "invalid_state", message: "Dieses Mitglied ist nicht aktiv und kann die Inhaberschaft nicht übernehmen." },
+  member_already_owner: { code: "conflict", message: "Diese Person ist bereits Inhaberin oder Inhaber eines Firmenkontos." },
 };
 
 const LISTING_FIELDS: Record<string, string> = {

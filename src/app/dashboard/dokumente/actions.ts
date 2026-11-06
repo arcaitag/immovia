@@ -16,7 +16,7 @@ import type { DocumentCreateInput, DocumentGrantInput, DocumentUpdateInput } fro
 
 function revalidateDocuments(paths: string[] = []) {
   revalidatePath("/dashboard/dokumente");
-  revalidatePath("/dashboard/interessenten", "layout");
+  revalidatePath("/dashboard/interessenten/[leadId]", "page");
   for (const path of paths) revalidatePath(path);
 }
 

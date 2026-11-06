@@ -108,6 +108,7 @@ export const createOrganizationSchema = z.object({
   phone: optionalPhoneSchema,
 });
 export type CreateOrganizationInput = z.input<typeof createOrganizationSchema>;
+export type CreateOrganizationValues = z.output<typeof createOrganizationSchema>;
 
 export const organizationProfileSchema = z.object({
   organizationId: z.uuid(),

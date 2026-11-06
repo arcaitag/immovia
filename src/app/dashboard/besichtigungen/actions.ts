@@ -21,7 +21,8 @@ import type { AppointmentStatus } from "@/lib/constants";
 
 function revalidateViewings() {
   revalidatePath("/dashboard/besichtigungen");
-  revalidatePath("/dashboard/interessenten", "layout");
+  revalidatePath("/dashboard/interessenten");
+  revalidatePath("/dashboard/interessenten/[leadId]", "page");
   revalidatePath("/dashboard/nachrichten", "layout");
 }
 

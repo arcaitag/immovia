@@ -100,6 +100,8 @@ export interface ChatMessage {
   rawCreatedAt: string;
   /** Nur im Browser: optimistische Nachricht */
   pending?: "sending" | "failed";
+  /** Nur im Browser: fehlgeschlagene Nachricht kann erneut gesendet werden */
+  retryable?: boolean;
 }
 
 export function mapMessageRow(row: MessageRow): ChatMessage {

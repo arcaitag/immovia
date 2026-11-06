@@ -5,22 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSearch } from "@/components/search/search-context";
-
-/** Seitenzahlen mit Auslassungen, z. B. [1, "…", 4, 5, 6, "…", 12]. */
-export function pageItems(current: number, totalPages: number): (number | "…")[] {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
-  const pages = new Set([1, totalPages, current - 1, current, current + 1]);
-  if (current <= 3) [2, 3, 4].forEach((p) => pages.add(p));
-  if (current >= totalPages - 2) [totalPages - 3, totalPages - 2, totalPages - 1].forEach((p) => pages.add(p));
-  const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
-  const result: (number | "…")[] = [];
-  for (const page of sorted) {
-    const previous = result[result.length - 1];
-    if (typeof previous === "number" && page - previous > 1) result.push("…");
-    result.push(page);
-  }
-  return result;
-}
+import { pageItems } from "@/components/search/url-state";
 
 /**
  * Seitennavigation. Echte Links (auch ohne JavaScript und für Suchmaschinen),

@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { assertUser } from "@/lib/auth/session";
@@ -123,13 +124,18 @@ export async function deleteRenovationAction(renovationId: unknown): Promise<Act
   }, "Renovation entfernt.");
 }
 
-export async function deletePropertyAction(propertyId: unknown): Promise<ActionResult<null>> {
+/**
+ * Soft Delete einer Immobilie. Mit redirectToList (Aufruf von einer Seite der Immobilie)
+ * wird direkt zur Liste weitergeleitet, damit die gelöschte Seite nicht neu gerendert wird.
+ */
+export async function deletePropertyAction(propertyId: unknown, redirectToList = false): Promise<ActionResult<null>> {
   return runAction(async () => {
     const user = await assertUser();
     const id = parseId(propertyId);
     const supabase = await createClient();
     const { publicSlugs } = await softDeleteProperty(supabase, user, id);
     revalidatePropertyViews({ publicSlugs, visibilityChanged: publicSlugs.length > 0 });
+    if (redirectToList === true) redirect("/dashboard/immobilien?geloescht=1");
     return null;
   }, "Die Immobilie wurde gelöscht.");
 }

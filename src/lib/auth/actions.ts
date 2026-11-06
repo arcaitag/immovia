@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { publicEnv } from "@/lib/env";
 import { AppError, fail, ok, validationError, type ActionResult } from "@/lib/errors";
+import { isFeatureEnabled } from "@/lib/settings";
 import {
   forgotPasswordSchema,
   loginSchema,
@@ -59,6 +60,12 @@ export async function registerAction(_prev: unknown, formData: FormData): Promis
     acceptTerms: formData.get("acceptTerms") === "on",
   });
   if (!parsed.success) return fail(validationError(parsed.error.flatten().fieldErrors));
+  if (!(await isFeatureEnabled("registration"))) {
+    return fail(new AppError("service_unavailable", "Neue Registrierungen sind derzeit nicht möglich. Bitte versuchen Sie es später erneut."));
+  }
+  if (parsed.data.accountType === "business" && !(await isFeatureEnabled("business_accounts"))) {
+    return fail(new AppError("service_unavailable", "Firmenkonten können derzeit nicht eröffnet werden. Bitte registrieren Sie sich als Privatperson."));
+  }
   const next = safeRedirectPath(formData.get("weiter"));
   const supabase = await createClient();
   const origin = await siteOrigin();

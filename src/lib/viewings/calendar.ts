@@ -5,6 +5,15 @@ import { utcToZurichParts, zurichLocalToUtc } from "@/lib/format";
  * (Kalendertage in Europe/Zurich), damit Sommer-/Winterzeit nie zu Tagesverschiebungen führt.
  */
 
+/** Gültiges Kalenderdatum im Format JJJJ-MM-TT (z. B. aus URL-Parametern). */
+export function isValidDateKey(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  if (!y || !m || !d) return false;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d && y >= 2000 && y <= 2100;
+}
+
 function parseIsoDate(date: string): { y: number; m: number; d: number } {
   const [y, m, d] = date.split("-").map(Number);
   if (!y || !m || !d) throw new Error(`Ungültiges Datum: ${date}`);

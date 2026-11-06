@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import { createClient, type ServerSupabaseClient } from "@/lib/supabase/server";
@@ -164,6 +165,12 @@ export const getPropertyWorkspace = cache(async (propertyId: string): Promise<Pr
   };
 });
 
+/** Seitentitel eines Schritts, z. B. «Bilder · 4.5-Zimmer-Wohnung in Bern». */
+export async function propertyStepTitle(propertyId: string, label: string): Promise<string> {
+  const workspace = await getPropertyWorkspace(propertyId);
+  return `${label} · ${workspace.displayName}`;
+}
+
 export interface PropertyOverview {
   property: PropertyRow;
   listing: ListingRow | null;
@@ -251,9 +258,13 @@ export async function createPropertyWithListing(
   if (input.organization_id && !user.organizations.some((o) => o.id === input.organization_id)) {
     throw new AppError("forbidden", "Sie sind nicht Mitglied dieses Firmenkontos.");
   }
-  const { data: property, error } = await supabase
+  // Die ID wird hier erzeugt: Ein INSERT … RETURNING scheitert an der SELECT-Policy
+  // (can_manage_property sieht die neue Zeile im selben Statement noch nicht).
+  const propertyId = randomUUID();
+  const { error } = await supabase
     .from("properties")
     .insert({
+      id: propertyId,
       property_type: input.property_type,
       offer_type: input.offer_type,
       organization_id: input.organization_id,
@@ -268,18 +279,33 @@ export async function createPropertyWithListing(
       condition: input.property_type === "new_build_project" ? "new_build" : null,
       ownership_type: input.property_type === "apartment" && input.offer_type === "sale" ? "condominium" : null,
       wizard_step: 1,
-    })
-    .select("id")
-    .single();
-  if (error || !property) throw fromDbError(error);
+    });
+  if (error) throw fromDbError(error);
 
   try {
-    const listing = await createDraftListing(supabase, user, property.id);
-    return { propertyId: property.id, listingId: listing.id };
+    const listing = await createDraftListing(supabase, user, propertyId);
+    return { propertyId, listingId: listing.id };
   } catch (cause) {
-    await supabase.from("properties").delete().eq("id", property.id);
+    await supabase.from("properties").delete().eq("id", propertyId);
     throw cause;
   }
+}
+
+/** Letzte Bewertung mit Zahlen (für den Preisvorschlag im Inserat). */
+export async function getLatestValuationSuggestion(
+  supabase: ServerSupabaseClient,
+  propertyId: string,
+): Promise<{ suggestedListPrice: number | null; createdAt: string } | null> {
+  const { data } = await supabase
+    .from("property_valuations")
+    .select("suggested_list_price, created_at")
+    .eq("property_id", propertyId)
+    .in("status", ["completed", "limited"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  return { suggestedListPrice: data.suggested_list_price, createdAt: data.created_at };
 }
 
 export async function getPropertyFeatures(supabase: ServerSupabaseClient, propertyId: string): Promise<string[]> {

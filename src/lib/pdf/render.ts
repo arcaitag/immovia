@@ -7,8 +7,9 @@ export function countPdfPages(buffer: Buffer): number {
   return matches ? matches.length : 0;
 }
 
-export async function renderPdf(document: ReactElement<DocumentProps>): Promise<{ buffer: Buffer; pageCount: number }> {
-  const buffer = await renderToBuffer(document);
+/** Rendert ein react-pdf-Dokument (Komponente, die <Document> liefert) in einen Puffer. */
+export async function renderPdf(document: ReactElement): Promise<{ buffer: Buffer; pageCount: number }> {
+  const buffer = await renderToBuffer(document as ReactElement<DocumentProps>);
   return { buffer, pageCount: countPdfPages(buffer) };
 }
 

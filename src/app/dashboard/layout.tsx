@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MaintenanceBanner } from "@/components/admin/maintenance-banner";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { requireUser } from "@/lib/auth/session";
 import { publicStorageUrl } from "@/lib/storage";
@@ -20,6 +21,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         isModerator: user.isModerator,
       }}
     >
+      <MaintenanceBanner variant="inline" />
       {children}
     </DashboardShell>
   );
