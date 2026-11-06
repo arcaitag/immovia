@@ -65,7 +65,7 @@ export function Onboarding() {
 
 const QUICK = [
   { href: "/dashboard/immobilien/neu", label: "Neue Immobilie", text: "Erfassen und inserieren", icon: HousePlus },
-  { href: "/dashboard/immobilien/neu?ziel=bewertung", label: "Immobilie bewerten", text: "Wert einschätzen lassen", icon: Gauge },
+  { href: "/dashboard/bewertungen", label: "KI-Bewertung", text: "Wert einschätzen lassen", icon: Gauge },
   { href: "/dashboard/nachrichten", label: "Nachrichten", text: "Mit Interessenten schreiben", icon: MessageSquare },
   { href: "/dashboard/besichtigungen", label: "Besichtigungen", text: "Termine und Zeitfenster", icon: CalendarCheck },
 ];

@@ -99,15 +99,14 @@ export function FilterPanel({ idPrefix, className, footer }: { idPrefix: string;
   return (
     <div className={cn("grid gap-5", className)}>
       <FilterSection title="Angebot">
-        <div role="radiogroup" aria-label="Angebotsart" className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1">
+        <div role="group" aria-label="Angebotsart" className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1">
           {OFFER_CHOICES.map((choice) => {
             const active = choice.value === offer;
             return (
               <button
                 key={choice.label}
                 type="button"
-                role="radio"
-                aria-checked={active}
+                aria-pressed={active}
                 onClick={() => setOffer(choice.value)}
                 className={cn(
                   "h-10 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-ring",

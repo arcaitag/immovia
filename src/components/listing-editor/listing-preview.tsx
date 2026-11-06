@@ -70,8 +70,11 @@ export function ListingPreview({
   images,
   features,
   renovations,
+  contactPhone,
 }: {
   listing: Tables<"listings">;
+  /** Telefon aus listing_contacts; angezeigt nur bei show_contact_phone */
+  contactPhone: string | null;
   images: PreviewImage[];
   features: string[];
   renovations: { id: string; year: number; category: string; description: string }[];
@@ -230,9 +233,9 @@ export function ListingPreview({
                 <User className="size-4 text-muted-foreground" aria-hidden /> {listing.contact_name}
               </p>
             ) : null}
-            {listing.show_contact_phone && listing.contact_phone ? (
+            {listing.show_contact_phone && contactPhone ? (
               <p className="flex items-center gap-2 text-sm">
-                <Phone className="size-4 text-muted-foreground" aria-hidden /> {formatPhone(listing.contact_phone)}
+                <Phone className="size-4 text-muted-foreground" aria-hidden /> {formatPhone(contactPhone)}
               </p>
             ) : null}
             <Button type="button" disabled>

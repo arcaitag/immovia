@@ -330,7 +330,7 @@ export async function buildAccountExport(): Promise<AccountExport | null> {
   const authUser = authData.user;
   if (!authUser) return null;
 
-  const [core, memberships, verifications, reports, threads, notifications] = await Promise.all([
+  const [core, memberships, verifications, reports, threads, notifications, listingContacts] = await Promise.all([
     supabase.rpc("export_my_data"),
     supabase.from("organization_members").select("organization_id, role, created_at, organizations(name, slug)").eq("user_id", authUser.id),
     supabase
@@ -350,6 +350,8 @@ export async function buildAccountExport(): Promise<AccountExport | null> {
       .eq("user_id", authUser.id)
       .order("created_at", { ascending: false })
       .limit(1000),
+    // Private Kontaktangaben der eigenen Inserate (RLS: nur verwaltete Inserate)
+    supabase.from("listing_contacts").select("listing_id, contact_email, contact_phone, updated_at, listings!inner(owner_id)").eq("listings.owner_id", authUser.id),
   ]);
   if (core.error) throw fromDbError(core.error);
 
@@ -373,6 +375,12 @@ export async function buildAccountExport(): Promise<AccountExport | null> {
       reports_submitted: (reports.data ?? []) as unknown as Json,
       assistant_conversations: (threads.data ?? []) as unknown as Json,
       notifications: (notifications.data ?? []) as unknown as Json,
+      listing_contacts: (listingContacts.data ?? []).map(({ listing_id, contact_email, contact_phone, updated_at }) => ({
+        listing_id,
+        contact_email,
+        contact_phone,
+        updated_at,
+      })) as unknown as Json,
     },
   };
 }

@@ -64,14 +64,14 @@ export async function savePropertyFieldsAction(
     if (Object.keys(parsed.data).length === 0) return { savedAt: new Date().toISOString() };
 
     const supabase = await createClient();
-    const row = await updatePropertyFields(supabase, user, id, parsed.data);
+    await updatePropertyFields(supabase, user, id, parsed.data);
 
     const listing = pickCurrentListing(await getListingsForProperties(supabase, [id]));
     if (["postal_code", "municipality", "property_type", "offer_type"].some((key) => key in parsed.data)) {
       await syncDraftStatus(supabase, id);
     }
     revalidatePropertyViews({ publicSlugs: listing && isPublicStatus(listing.status) ? [listing.slug] : [] });
-    return { savedAt: row.updated_at };
+    return { savedAt: new Date().toISOString() };
   });
 }
 

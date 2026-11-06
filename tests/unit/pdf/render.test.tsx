@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import * as React from "react";
 import sharp from "sharp";
@@ -135,6 +135,32 @@ describe("PDF-Erzeugung (ohne Netzwerkbilder)", () => {
     expect(noNumbers.buffer.subarray(0, 4).toString()).toBe("%PDF");
     maybeWrite("bewertung-ohne-daten.pdf", noNumbers.buffer);
   }, 30_000);
+
+  it("verwendet Schriften ohne zusammengesetzte Glyphen und ohne GSUB (korrekte Textebene)", () => {
+    // fontkit legt Komponenten-Glyphen (z. B. «:» aus zwei «.») beim Einbetten ohne Unicode an
+    // und cacht sie prozessweit – in späteren PDFs fehlten dann «4» und «.» beim Kopieren/Suchen.
+    for (const file of ["Inter-Regular", "Inter-SemiBold", "Inter-Bold", "Manrope-Bold", "Manrope-ExtraBold"]) {
+      const font = readFileSync(path.join(process.cwd(), "src/lib/pdf/fonts", `${file}.ttf`));
+      const numTables = font.readUInt16BE(4);
+      const tables = new Map<string, number>();
+      for (let i = 0; i < numTables; i++) {
+        const entry = 12 + i * 16;
+        tables.set(font.toString("latin1", entry, entry + 4), font.readUInt32BE(entry + 8));
+      }
+      expect(tables.has("GSUB"), `${file}: GSUB vorhanden`).toBe(false);
+      const head = tables.get("head")!;
+      const loca = tables.get("loca")!;
+      const glyf = tables.get("glyf")!;
+      const numGlyphs = font.readUInt16BE(tables.get("maxp")! + 4);
+      const longOffsets = font.readInt16BE(head + 50) === 1;
+      const offset = (i: number) => (longOffsets ? font.readUInt32BE(loca + i * 4) : font.readUInt16BE(loca + i * 2) * 2);
+      let composites = 0;
+      for (let i = 0; i < numGlyphs; i++) {
+        if (offset(i + 1) > offset(i) && font.readInt16BE(glyf + offset(i)) < 0) composites++;
+      }
+      expect(composites, `${file}: zusammengesetzte Glyphen`).toBe(0);
+    }
+  });
 
   it("zählt Seiten und bildet Dateinamen", () => {
     expect(countPdfPages(Buffer.from("/Type /Pages /Type /Page /Type /Page"))).toBe(2);

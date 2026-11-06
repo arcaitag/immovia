@@ -8,6 +8,7 @@ import { ListingPreview } from "@/components/listing-editor/listing-preview";
 import { createClient } from "@/lib/supabase/server";
 import { isPublicStatus } from "@/lib/properties/listing-status";
 import { getPropertyFeatures, getPropertyWorkspace, listRenovations, propertyStepTitle } from "@/services/properties";
+import { getListingContact } from "@/services/listings";
 import { listPropertyImages } from "@/services/property-images";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -37,10 +38,11 @@ export default async function ListingPreviewPage({ params }: { params: Promise<{
   }
 
   const supabase = await createClient();
-  const [images, features, renovations] = await Promise.all([
+  const [images, features, renovations, contact] = await Promise.all([
     listPropertyImages(supabase, property.id),
     getPropertyFeatures(supabase, property.id),
     listRenovations(supabase, property.id),
+    getListingContact(supabase, listing.id),
   ]);
   const publicUrl = isPublicStatus(listing.status) && listing.slug ? `/immobilien/${listing.slug}` : null;
 
@@ -73,6 +75,7 @@ export default async function ListingPreviewPage({ params }: { params: Promise<{
       <div className="rounded-3xl border border-border bg-white p-4 shadow-card sm:p-8">
         <ListingPreview
           listing={listing}
+          contactPhone={contact.contact_phone}
           images={images
             .filter((image) => image.status === "ready")
             .map((image) => ({

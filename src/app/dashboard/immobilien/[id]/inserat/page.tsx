@@ -6,14 +6,14 @@ import { ListingForm } from "@/components/listing-editor/listing-form";
 import { createClient } from "@/lib/supabase/server";
 import type { ListingFormValues } from "@/lib/validation/listing";
 import { getLatestValuationSuggestion, getPropertyWorkspace, propertyStepTitle } from "@/services/properties";
-import { getDossierSummary, type ListingRow } from "@/services/listings";
+import { getDossierSummary, getListingContact, type ListingContact, type ListingRow } from "@/services/listings";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return { title: await propertyStepTitle(id, "Inserat") };
 }
 
-function toFormValues(listing: ListingRow): ListingFormValues {
+function toFormValues(listing: ListingRow, contact: ListingContact): ListingFormValues {
   const money = (value: number | null) => (value === null ? "" : String(Number(value)));
   return {
     price: money(listing.price),
@@ -29,8 +29,8 @@ function toFormValues(listing: ListingRow): ListingFormValues {
     search_summary: listing.search_summary ?? "",
     location_precision: listing.location_precision,
     contact_name: listing.contact_name ?? "",
-    contact_phone: listing.contact_phone ?? "",
-    contact_email: listing.contact_email ?? "",
+    contact_phone: contact.contact_phone ?? "",
+    contact_email: contact.contact_email ?? "",
     show_contact_phone: listing.show_contact_phone,
     dossier_public: listing.dossier_public,
     texts_confirmed: Boolean(listing.texts_confirmed_at),
@@ -57,9 +57,10 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
   }
 
   const supabase = await createClient();
-  const [dossiers, valuation] = await Promise.all([
+  const [dossiers, valuation, contact] = await Promise.all([
     getDossierSummary(supabase, property.id),
     getLatestValuationSuggestion(supabase, property.id),
+    getListingContact(supabase, listing.id),
   ]);
 
   return (
@@ -74,7 +75,7 @@ export default async function ListingPage({ params }: { params: Promise<{ id: st
         propertyId={property.id}
         listingId={listing.id}
         offerType={listing.offer_type}
-        initialValues={toFormValues(listing)}
+        initialValues={toFormValues(listing, contact)}
         textsConfirmedAt={listing.texts_confirmed_at}
         parkingSpaces={property.garage_spaces + property.underground_parking_spaces + property.outdoor_parking_spaces}
         propertyAddress={{

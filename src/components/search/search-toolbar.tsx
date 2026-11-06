@@ -23,15 +23,14 @@ const VIEWS: { value: SearchView; label: string; icon: typeof List; desktopOnly?
 function ViewToggle() {
   const { snapshot, navigate } = useSearch();
   return (
-    <div role="radiogroup" aria-label="Ansicht" className="inline-flex h-11 items-center gap-1 rounded-xl bg-muted p-1">
+    <div role="group" aria-label="Ansicht" className="inline-flex h-11 items-center gap-1 rounded-xl bg-muted p-1">
       {VIEWS.map((view) => {
         const active = snapshot.view === view.value;
         return (
           <button
             key={view.value}
             type="button"
-            role="radio"
-            aria-checked={active}
+            aria-pressed={active}
             aria-label={view.label}
             title={view.label}
             onClick={() => navigate({ view: view.value })}

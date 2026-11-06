@@ -87,6 +87,41 @@ export async function loadManagedListing(
   return data;
 }
 
+/** Private Kontaktangaben eines Inserats (Tabelle listing_contacts, nur für Verwaltende lesbar). */
+export interface ListingContact {
+  contact_email: string | null;
+  contact_phone: string | null;
+}
+
+export async function getListingContact(supabase: ServerSupabaseClient, listingId: string): Promise<ListingContact> {
+  const { data, error } = await supabase
+    .from("listing_contacts")
+    .select("contact_email, contact_phone")
+    .eq("listing_id", listingId)
+    .maybeSingle();
+  if (error) throw fromDbError(error);
+  return { contact_email: data?.contact_email ?? null, contact_phone: data?.contact_phone ?? null };
+}
+
+/** Speichert E-Mail und Telefon (aktualisieren, sonst anlegen). */
+export async function saveListingContact(
+  supabase: ServerSupabaseClient,
+  listingId: string,
+  contact: ListingContact,
+): Promise<void> {
+  const { data: updated, error } = await supabase
+    .from("listing_contacts")
+    .update({ contact_email: contact.contact_email, contact_phone: contact.contact_phone })
+    .eq("listing_id", listingId)
+    .select("listing_id");
+  if (error) throw fromDbError(error);
+  if (updated && updated.length > 0) return;
+  const { error: insertError } = await supabase
+    .from("listing_contacts")
+    .insert({ listing_id: listingId, contact_email: contact.contact_email, contact_phone: contact.contact_phone });
+  if (insertError) throw fromDbError(insertError);
+}
+
 /** Legt ein leeres Inserat (Entwurf) für eine Immobilie an, vorbelegt mit den Kontaktdaten. */
 export async function createDraftListing(
   supabase: ServerSupabaseClient,
@@ -97,11 +132,9 @@ export async function createDraftListing(
   const name = [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() || profile.display_name;
   const phone = profile.phone && /^\+?[0-9 ()/-]{6,24}$/.test(profile.phone) ? profile.phone : null;
   // Besitz, Angebotsart und Objektdaten setzt der Trigger listings_before_write aus der Immobilie.
-  const draft: Pick<TablesInsert<"listings">, "property_id" | "contact_name" | "contact_email" | "contact_phone" | "location_precision"> = {
+  const draft: Pick<TablesInsert<"listings">, "property_id" | "contact_name" | "location_precision"> = {
     property_id: propertyId,
     contact_name: name.slice(0, 120) || null,
-    contact_email: user.email,
-    contact_phone: phone,
     location_precision: "area",
   };
   const { data, error } = await supabase
@@ -110,6 +143,8 @@ export async function createDraftListing(
     .select("*")
     .single();
   if (error || !data) throw fromDbError(error);
+  // E-Mail und Telefon sind privat und liegen getrennt vom öffentlich lesbaren Inserat.
+  await saveListingContact(supabase, data.id, { contact_email: user.email, contact_phone: phone });
   return data;
 }
 
@@ -174,14 +209,13 @@ export async function saveListingContent(
     search_summary: data.search_summary,
     location_precision: data.location_precision,
     contact_name: data.contact_name,
-    contact_phone: data.contact_phone,
-    contact_email: data.contact_email,
     show_contact_phone: data.show_contact_phone,
     dossier_public: data.dossier_public,
     texts_confirmed_at: textsConfirmedAt,
   };
   const { data: saved, error } = await supabase.from("listings").update(update).eq("id", listingId).select("*").single();
   if (error || !saved) throw fromDbError(error);
+  await saveListingContact(supabase, listingId, { contact_email: data.contact_email, contact_phone: data.contact_phone });
   return saved;
 }
 

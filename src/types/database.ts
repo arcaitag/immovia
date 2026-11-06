@@ -950,6 +950,38 @@ export type Database = {
           },
         ];
       };
+      listing_contacts: {
+        Row: {
+          listing_id: string;
+          contact_email: string | null;
+          contact_phone: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          listing_id: string;
+          contact_email?: string | null;
+          contact_phone?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          listing_id?: string;
+          contact_email?: string | null;
+          contact_phone?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "listing_contacts_listing_id_fkey";
+            columns: ["listing_id"];
+            isOneToOne: true;
+            referencedRelation: "listings";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       listing_inquiries: {
         Row: {
           id: string;
@@ -1118,8 +1150,6 @@ export type Database = {
           public_latitude: number | null;
           public_longitude: number | null;
           contact_name: string | null;
-          contact_phone: string | null;
-          contact_email: string | null;
           show_contact_phone: boolean;
           dossier_public: boolean;
           property_type: Database["public"]["Enums"]["property_type"];
@@ -1191,8 +1221,6 @@ export type Database = {
           public_latitude?: number | null;
           public_longitude?: number | null;
           contact_name?: string | null;
-          contact_phone?: string | null;
-          contact_email?: string | null;
           show_contact_phone?: boolean;
           dossier_public?: boolean;
           property_type?: Database["public"]["Enums"]["property_type"];
@@ -1264,8 +1292,6 @@ export type Database = {
           public_latitude?: number | null;
           public_longitude?: number | null;
           contact_name?: string | null;
-          contact_phone?: string | null;
-          contact_email?: string | null;
           show_contact_phone?: boolean;
           dossier_public?: boolean;
           property_type?: Database["public"]["Enums"]["property_type"];
@@ -3246,6 +3272,10 @@ export type Database = {
         Args: { p_limit: number; p_worker: string };
         Returns: Database["public"]["Tables"]["ai_generation_jobs"]["Row"][];
       };
+      cleanup_email_outbox: {
+        Args: never;
+        Returns: number;
+      };
       cleanup_rate_limits: {
         Args: never;
         Returns: number;
@@ -3285,6 +3315,13 @@ export type Database = {
       get_listing_availability: {
         Args: { p_slug: string };
         Returns: string;
+      };
+      get_listing_public_contact: {
+        Args: { p_listing_id: string };
+        Returns: {
+          contact_name: string | null;
+          contact_phone: string | null;
+        }[];
       };
       get_listing_statistics: {
         Args: { p_listing_id: string; p_days?: number };
@@ -3330,6 +3367,13 @@ export type Database = {
       get_owner_overview: {
         Args: never;
         Returns: Json;
+      };
+      get_public_verifications: {
+        Args: { p_subject_type: string; p_subject_id: string };
+        Returns: {
+          kind: Database["public"]["Enums"]["verification_kind"] | null;
+          verified_at: string | null;
+        }[];
       };
       get_unread_counts: {
         Args: never;

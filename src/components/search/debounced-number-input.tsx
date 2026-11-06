@@ -56,19 +56,23 @@ export function DebouncedNumberInput({
     if (!focused) setText(toText(value, grouping));
   }
 
-  const commitIfChanged = React.useEffectEvent((raw: string) => {
+  // Nur echte Eingaben übernehmen: Entspricht der Text der Anzeige des aktuellen Werts
+  // (z. B. beim ersten Rendern mit gerundeten Werten aus der URL), wird nichts ausgelöst.
+  function commit(raw: string) {
+    if (raw === toText(value, grouping)) return;
     const next = toNumber(raw);
     if (next !== value) onCommit(next);
-  });
+  }
+
+  const commitAfterDelay = React.useEffectEvent((raw: string) => commit(raw));
 
   React.useEffect(() => {
-    const timer = window.setTimeout(() => commitIfChanged(text), delay);
+    const timer = window.setTimeout(() => commitAfterDelay(text), delay);
     return () => window.clearTimeout(timer);
   }, [text, delay]);
 
   function commitNow() {
-    const next = toNumber(text);
-    if (next !== value) onCommit(next);
+    commit(text);
   }
 
   return (

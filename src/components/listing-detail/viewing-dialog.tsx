@@ -215,7 +215,7 @@ function ViewingBody({ target, onClose, onRequestByMessage }: { target: InquiryT
 
   return (
     <div className="grid gap-5">
-      <div className="grid max-h-[46dvh] gap-5 overflow-y-auto overscroll-contain pr-1" role="radiogroup" aria-label="Freie Zeitfenster">
+      <div className="grid max-h-[46dvh] gap-5 overflow-y-auto overscroll-contain pr-1" role="group" aria-label="Freie Zeitfenster">
         {groups.map((group) => (
           <section key={group.day} aria-label={group.day}>
             <h3 className="mb-2 text-sm font-bold">{group.day}</h3>
@@ -227,8 +227,7 @@ function ViewingBody({ target, onClose, onRequestByMessage }: { target: InquiryT
                   <button
                     key={slot.id}
                     type="button"
-                    role="radio"
-                    aria-checked={active}
+                    aria-pressed={active}
                     disabled={full}
                     onClick={() => setSelected(slot.id)}
                     className={cn(
