@@ -5,6 +5,7 @@ import {
   adminClient,
   createTestJpeg,
   deleteUserWithFiles,
+  login,
   newVisitor,
   uniqueId,
   userIdByEmail,
@@ -43,7 +44,16 @@ test.describe("Szenario A: Verkäuferin inseriert eine Immobilie", () => {
       await page.getByLabel("Passwort", { exact: true }).fill(E2E_PASSWORD);
       await page.getByRole("checkbox", { name: /AGB/ }).check();
       await page.getByRole("button", { name: "Kostenloses Konto erstellen" }).click();
-      // Lokal ist die E-Mail-Bestätigung automatisch aktiv: direkt angemeldet im Dashboard
+      // Lokal bestätigt GoTrue automatisch (direkt im Dashboard). Mit E-Mail-Bestätigung (z. B. Preview)
+      // wird das Konto über die Service Role bestätigt und danach regulär angemeldet.
+      const confirmHint = page.getByRole("heading", { name: "Bitte bestätigen Sie Ihre E-Mail-Adresse" });
+      await expect(page.getByRole("link", { name: /Erste Immobilie erfassen/ }).or(confirmHint)).toBeVisible();
+      if (await confirmHint.isVisible()) {
+        const userId = await userIdByEmail(email);
+        expect(userId).not.toBeNull();
+        await adminClient().auth.admin.updateUserById(userId!, { email_confirm: true });
+        await login(page, { email, password: E2E_PASSWORD });
+      }
       await expect(page).toHaveURL(/\/dashboard$/);
     });
 
@@ -144,6 +154,11 @@ test.describe("Szenario A: Verkäuferin inseriert eine Immobilie", () => {
         // Standort nur mit PLZ und Ort, ohne Strasse
         await expect(visitor.page.getByText("3011 Bern").first()).toBeVisible();
         await expect(visitor.page.getByText("Bundesgasse")).toHaveCount(0);
+        // Das hochgeladene Foto wird als verkleinerte WebP-Variante aus dem öffentlichen Storage geladen
+        const cover = visitor.page.locator('img[src*="/storage/v1/object/public/property-images/"]').filter({ visible: true }).first();
+        await expect(cover).toBeVisible();
+        await expect(cover).toHaveAttribute("src", /-(sm|md|lg)\.webp$/);
+        await expect.poll(() => cover.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
 
         await visitor.page.goto(`/immobilien?q=${encodeURIComponent(id)}`);
         await expect(visitor.page.getByRole("status").filter({ hasText: "gefunden" })).toHaveText("1 Immobilie gefunden");

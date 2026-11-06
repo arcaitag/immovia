@@ -10,6 +10,8 @@ interface NavigateOptions {
   history?: "push" | "replace";
   /** Nach dem Wechsel an den Anfang der Trefferliste scrollen */
   scrollToResults?: boolean;
+  /** Anker für die Zieladresse (ohne «#»), z. B. um das Filter-Sheet nach einem Routenwechsel wieder zu öffnen */
+  hash?: string;
 }
 
 interface SearchContextValue {
@@ -66,7 +68,7 @@ export function SearchProvider({
   const navigate = React.useCallback(
     (next: Partial<SearchSnapshot>, options: NavigateOptions = {}) => {
       const target = resolve(snapshot, next);
-      const href = searchHref(target);
+      const href = options.hash ? `${searchHref(target)}#${options.hash}` : searchHref(target);
       startTransition(() => {
         setOptimisticSnapshot(target);
         if (options.history === "push") router.push(href, { scroll: false });

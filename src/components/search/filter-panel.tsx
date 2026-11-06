@@ -63,7 +63,18 @@ function CheckboxOption({ id, label, checked, onChange }: { id: string; label: s
  * Alle Suchfilter gemäss Spezifikation. Änderungen werden sofort (Zahlenfelder verzögert)
  * in die URL übernommen; die Trefferliste aktualisiert sich serverseitig.
  */
-export function FilterPanel({ idPrefix, className, footer }: { idPrefix: string; className?: string; footer?: React.ReactNode }) {
+export function FilterPanel({
+  idPrefix,
+  className,
+  footer,
+  routeChangeHash,
+}: {
+  idPrefix: string;
+  className?: string;
+  footer?: React.ReactNode;
+  /** Anker für Wechsel der Angebotsart (neue Route), damit ein umgebendes Sheet wieder aufgeht */
+  routeChangeHash?: string;
+}) {
   const { snapshot, navigate } = useSearch();
   const criteria = snapshot.criteria;
   const offer = criteria.offer;
@@ -79,7 +90,11 @@ export function FilterPanel({ idPrefix, className, footer }: { idPrefix: string;
 
   function setOffer(next: OfferType | undefined) {
     if (next === offer) return;
-    update({ offer: next, price_min: undefined, price_max: undefined, pets: next === "rent" ? criteria.pets : undefined });
+    // Jede Angebotsart hat eine eigene Route (/immobilien, /kaufen, /mieten)
+    navigate(
+      { criteria: patchCriteria(criteria, { offer: next, price_min: undefined, price_max: undefined, pets: next === "rent" ? criteria.pets : undefined }) },
+      { hash: routeChangeHash },
+    );
   }
 
   function setCanton(code: string) {

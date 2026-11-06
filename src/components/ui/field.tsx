@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
  */
 export function Field({
   label,
+  labelAddon,
   htmlFor,
   hint,
   error,
@@ -17,6 +18,8 @@ export function Field({
   children,
 }: {
   label?: React.ReactNode;
+  /** Neben dem Label, aber ausserhalb davon (z. B. Info-Button), damit es nicht Teil des Feldnamens wird */
+  labelAddon?: React.ReactNode;
   htmlFor?: string;
   hint?: React.ReactNode;
   error?: string | null;
@@ -35,15 +38,23 @@ export function Field({
         id: children.props.id ?? htmlFor,
       })
     : children;
+  const labelElement = label ? (
+    <Label htmlFor={htmlFor} className="flex items-center gap-1.5">
+      {label}
+      {required ? <span className="text-destructive" aria-hidden>*</span> : null}
+      {optional ? <span className="text-xs font-normal text-muted-foreground">(optional)</span> : null}
+    </Label>
+  ) : null;
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      {label ? (
-        <Label htmlFor={htmlFor} className="flex items-center gap-1.5">
-          {label}
-          {required ? <span className="text-destructive" aria-hidden>*</span> : null}
-          {optional ? <span className="text-xs font-normal text-muted-foreground">(optional)</span> : null}
-        </Label>
-      ) : null}
+      {labelElement && labelAddon ? (
+        <div className="flex items-center gap-1">
+          {labelElement}
+          {labelAddon}
+        </div>
+      ) : (
+        labelElement
+      )}
       {control}
       {hint && !error ? (
         <p id={hintId} className="text-xs leading-relaxed text-muted-foreground">

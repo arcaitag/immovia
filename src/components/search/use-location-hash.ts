@@ -20,7 +20,9 @@ export function useLocationHash(): string {
 export function clearLocationHash() {
   if (!window.location.hash) return;
   const { pathname, search } = window.location;
-  window.history.replaceState(window.history.state, "", `${pathname}${search}`);
+  // Zustand null statt history.state: Nur so übernimmt der Next.js-Router die neue Adresse. Sonst
+  // schreibt er bei der nächsten Aktualisierung (z. B. nach einer Server Action) den alten Anker zurück.
+  window.history.replaceState(null, "", `${pathname}${search}`);
   window.dispatchEvent(new HashChangeEvent("hashchange"));
 }
 

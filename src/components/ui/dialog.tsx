@@ -40,7 +40,7 @@ export function DialogContent({
       >
         {children}
         {hideClose ? null : (
-          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground">
+          <DialogPrimitive.Close className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground">
             <X className="size-4" aria-hidden />
             <span className="sr-only">Schliessen</span>
           </DialogPrimitive.Close>

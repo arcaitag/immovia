@@ -27,7 +27,8 @@ test.describe("Szenario B: Interessent", () => {
   const id = uniqueId();
   const inquiryText = `Guten Tag, ist die Wohnung noch frei? Ich hätte gern Unterlagen zum Erneuerungsfonds. (Test ${id})`;
   const searchName = `Wohnungen Kanton Bern ab 4 Zimmer (Test ${id})`;
-  const startedAt = new Date().toISOString();
+  // Puffer gegen Uhrenabweichung zwischen Testrechner und Datenbank (für das Zurücksetzen der Aufrufe)
+  const startedAt = new Date(Date.now() - 60_000).toISOString();
 
   let buyer: TestUser;
   let buyerName = "";
@@ -81,20 +82,20 @@ test.describe("Szenario B: Interessent", () => {
     await test.step("Suche mit Filtern (URL-Parameter)", async () => {
       await page.goto("/immobilien");
       const filters = page.getByRole("complementary", { name: "Filter" });
-      await filters.getByRole("group", { name: "Angebotsart" }).getByRole("button", { name: "Kaufen" }).click();
+      await filters.getByRole("group", { name: "Angebotsart", exact: true }).getByRole("button", { name: "Kaufen" }).click();
       await expect(page).toHaveURL(/\/kaufen$/);
-      await filters.getByRole("group", { name: "Immobilientyp" }).getByLabel("Wohnung", { exact: true }).check();
+      await filters.getByRole("group", { name: "Immobilientyp", exact: true }).getByLabel("Wohnung", { exact: true }).check();
       await expect(page).toHaveURL(/typ=apartment/);
-      await filters.getByRole("group", { name: "Zimmer" }).getByLabel("von").selectOption("4");
+      await filters.getByRole("group", { name: "Zimmer", exact: true }).getByLabel("von").selectOption("4");
       await expect(page).toHaveURL(/zimmer_von=4/);
-      await filters.getByRole("group", { name: "Region" }).getByLabel("Kanton").selectOption("BE");
+      await filters.getByRole("group", { name: "Region", exact: true }).getByLabel("Kanton").selectOption("BE");
       await expect(page).toHaveURL(/kanton=BE/);
 
       const url = new URL(page.url());
       expect(url.pathname).toBe("/kaufen");
       expect(Object.fromEntries(url.searchParams)).toEqual({ typ: "apartment", zimmer_von: "4", kanton: "BE" });
 
-      const chips = page.getByRole("group", { name: "Aktive Filter" });
+      const chips = page.getByRole("group", { name: "Aktive Filter", exact: true });
       await expect(chips.getByRole("button", { name: "Filter entfernen: Wohnung" })).toBeVisible();
       await expect(chips.getByRole("button", { name: /Filter entfernen: ab 4 Zimmer/ })).toBeVisible();
       await expect(chips.getByRole("button", { name: "Filter entfernen: Kanton Bern" })).toBeVisible();
@@ -103,8 +104,8 @@ test.describe("Szenario B: Interessent", () => {
 
       // Die Filter bleiben beim Neuladen über die URL erhalten
       await page.reload();
-      await expect(filters.getByRole("group", { name: "Immobilientyp" }).getByLabel("Wohnung", { exact: true })).toBeChecked();
-      await expect(filters.getByRole("group", { name: "Zimmer" }).getByLabel("von")).toHaveValue("4");
+      await expect(filters.getByRole("group", { name: "Immobilientyp", exact: true }).getByLabel("Wohnung", { exact: true })).toBeChecked();
+      await expect(filters.getByRole("group", { name: "Zimmer", exact: true }).getByLabel("von")).toHaveValue("4");
     });
 
     await test.step("Suchauftrag speichern", async () => {
@@ -136,10 +137,10 @@ test.describe("Szenario B: Interessent", () => {
       await dialog.getByLabel("Telefonnummer").fill("+41 79 123 45 67");
       await dialog.getByRole("checkbox", { name: /Verkaufsdokumentation/ }).check();
       await dialog.getByRole("button", { name: "Anfrage senden" }).click();
-      await expect(dialog.getByRole("alert").filter({ hasText: "Anfrage gesendet" })).toBeVisible();
+      await expect(dialog.getByRole("status").filter({ hasText: "Anfrage gesendet" })).toBeVisible();
       await dialog.getByRole("link", { name: "Zur Konversation" }).click();
       await expect(page).toHaveURL(/\/dashboard\/nachrichten\/[0-9a-f-]{36}$/);
-      await expect(page.getByText(inquiryText)).toBeVisible();
+      await expect(page.getByRole("region", { name: "Unterhaltung" }).getByText(inquiryText)).toBeVisible();
     });
 
     await test.step("Besichtigung buchen (falls Zeitfenster vorhanden)", async () => {
@@ -177,7 +178,7 @@ test.describe("Szenario B: Interessent", () => {
       const conversation = page.getByRole("link").filter({ hasText: listing.title }).first();
       await expect(conversation).toBeVisible();
       await conversation.click();
-      await expect(page.getByText(inquiryText)).toBeVisible();
+      await expect(page.getByRole("region", { name: "Unterhaltung" }).getByText(inquiryText)).toBeVisible();
 
       await page.goto("/dashboard/suchauftraege");
       await expect(page.getByRole("heading", { level: 1, name: "Suchaufträge" })).toBeVisible();

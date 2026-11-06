@@ -46,14 +46,9 @@ export function InfoTip({ title, children }: { title: string; children: React.Re
   );
 }
 
-function LabelWithInfo({ label, info }: { label: string; info?: { title: string; text: React.ReactNode } }) {
-  if (!info) return <>{label}</>;
-  return (
-    <span className="inline-flex items-center gap-1">
-      {label}
-      <InfoTip title={info.title}>{info.text}</InfoTip>
-    </span>
-  );
+/** Info-Button neben dem Label (ausserhalb davon, damit er nicht Teil des Feldnamens wird). */
+function infoAddon(info?: { title: string; text: React.ReactNode }) {
+  return info ? <InfoTip title={info.title}>{info.text}</InfoTip> : undefined;
 }
 
 export function TextField({
@@ -97,7 +92,8 @@ export function TextField({
   });
   return (
     <Field
-      label={<LabelWithInfo label={label} info={info} />}
+      label={label}
+      labelAddon={infoAddon(info)}
       htmlFor={id}
       hint={hint}
       error={errorOf(form, name)}
@@ -187,7 +183,8 @@ export function SelectField({
   });
   return (
     <Field
-      label={<LabelWithInfo label={label} info={info} />}
+      label={label}
+      labelAddon={infoAddon(info)}
       htmlFor={id}
       hint={hint}
       error={errorOf(form, name)}

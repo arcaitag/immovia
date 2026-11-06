@@ -41,9 +41,10 @@ const MODERATION_DIALOGS: Record<
     reason: { label: "Begründung für die Eigentümer", required: true, placeholder: "z. B. Irreführende Preisangabe" },
     destructive: true,
   },
+  // Titel und Text hängen vom Zustand ab, siehe unblockDialog()
   unblock: {
-    title: "Sperre bzw. Markierung aufheben?",
-    description: "Der Moderationsstatus wird auf «unauffällig» gesetzt. Ein gesperrtes Inserat wird dadurch nicht automatisch wieder veröffentlicht.",
+    title: "Markierung aufheben?",
+    description: "Die Markierung wird entfernt. An der Sichtbarkeit des Inserats ändert sich nichts.",
     confirm: "Aufheben",
     reason: { label: "Notiz", required: false },
   },
@@ -54,6 +55,23 @@ const MODERATION_DIALOGS: Record<
     reason: { label: "Grund der Markierung", required: true },
   },
 };
+
+/**
+ * Aufheben setzt nur den Moderationsstatus zurück (admin_moderate_listing): Ein gesperrtes, aber
+ * veröffentlichtes Inserat ist danach sofort wieder öffentlich.
+ */
+function unblockDialog(status: ListingStatus, moderationStatus: ModerationStatus) {
+  const base = MODERATION_DIALOGS.unblock;
+  if (moderationStatus !== "blocked") return base;
+  const goesPublic = status === "published" || status === "reserved";
+  return {
+    ...base,
+    title: "Sperre aufheben?",
+    description: goesPublic
+      ? "Das Inserat ist danach sofort wieder öffentlich sichtbar."
+      : "Das Inserat ist danach nicht mehr gesperrt und kann wieder veröffentlicht werden.",
+  };
+}
 
 export function ListingActions({
   listingId,
@@ -81,7 +99,12 @@ export function ListingActions({
   const close = (open: boolean) => {
     if (!open) setDialog(null);
   };
-  const moderation = dialog && dialog in MODERATION_DIALOGS ? MODERATION_DIALOGS[dialog as ListingModerationAction] : null;
+  const moderation =
+    dialog === "unblock"
+      ? unblockDialog(status, moderationStatus)
+      : dialog && dialog in MODERATION_DIALOGS
+        ? MODERATION_DIALOGS[dialog as ListingModerationAction]
+        : null;
 
   return (
     <>

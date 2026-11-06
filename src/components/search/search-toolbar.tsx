@@ -11,8 +11,12 @@ import { cn } from "@/lib/utils";
 import { useSearch } from "@/components/search/search-context";
 import { FilterPanel } from "@/components/search/filter-panel";
 import { useMediaQuery } from "@/components/search/use-media-query";
+import { clearLocationHash, useLocationHash } from "@/components/search/use-location-hash";
 import { SaveSearchButton } from "@/components/saved-searches/save-search-dialog";
 import type { SearchView } from "@/components/search/url-state";
+
+/** Anker, der das Filter-Sheet nach einem Routenwechsel wieder öffnet */
+const FILTER_SHEET_HASH = "filter";
 
 const VIEWS: { value: SearchView; label: string; icon: typeof List; desktopOnly?: boolean }[] = [
   { value: "liste", label: "Liste", icon: List },
@@ -56,6 +60,17 @@ export function SearchToolbar() {
   const { snapshot, navigate, total, isPending, hrefFor } = useSearch();
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const [filtersOpen, setFiltersOpen] = React.useState(false);
+  // Ein Wechsel der Angebotsart lädt eine andere Route und baut die Werkzeugleiste neu auf.
+  // Der Anker «#filter» öffnet das Sheet danach wieder und wird gleich wieder entfernt.
+  const hash = useLocationHash();
+  const [seenHash, setSeenHash] = React.useState("");
+  if (hash !== seenHash) {
+    setSeenHash(hash);
+    if (hash === `#${FILTER_SHEET_HASH}`) setFiltersOpen(true);
+  }
+  React.useEffect(() => {
+    if (hash === `#${FILTER_SHEET_HASH}`) clearLocationHash();
+  }, [hash]);
   const criteria = snapshot.criteria;
   const activeCount = countActiveFilters(criteria) + (snapshot.bbox ? 1 : 0);
   const hasRadius = criteria.lat !== undefined && criteria.lng !== undefined && criteria.radius !== undefined;
@@ -86,6 +101,7 @@ export function SearchToolbar() {
             <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5">
               <FilterPanel
                 idPrefix="filter-sheet"
+                routeChangeHash={FILTER_SHEET_HASH}
                 footer={
                   <SheetClose asChild>
                     <Button size="lg" className="w-full" aria-live="polite">

@@ -161,6 +161,36 @@ describe("Inserate: Statusregeln", () => {
   });
 });
 
+describe("Inserate: Aufrufstatistik", () => {
+  it("ein Aufruf erhöht view_count, ändert aber updated_at nicht", async () => {
+    const before = await db.query<{ updated_at: Date; view_count: number }>(
+      "select updated_at, view_count from public.listings where id = $1",
+      [IDS.listing],
+    );
+    await withSession(db, { role: "service_role" }, async (s) => {
+      await s.query("insert into public.listing_views (listing_id, viewer_hash) values ($1, $2)", [
+        IDS.listing,
+        "aufruf-test-0123456789abcdef",
+      ]);
+      const rows = await s.query<{ updated_at: Date; view_count: number }>(
+        "select updated_at, view_count from public.listings where id = $1",
+        [IDS.listing],
+      );
+      expect(rows[0]?.view_count).toBe(before.rows[0]!.view_count + 1);
+      expect(rows[0]?.updated_at.toISOString()).toBe(before.rows[0]!.updated_at.toISOString());
+    });
+  });
+
+  it("eine echte Änderung setzt updated_at weiterhin neu", async () => {
+    const before = await db.query<{ updated_at: Date }>("select updated_at from public.listings where id = $1", [IDS.listing]);
+    await withSession(db, as(IDS.seller), async (s) => {
+      await s.query("update public.listings set title = title || ' (neu)' where id = $1", [IDS.listing]);
+      const rows = await s.query<{ updated_at: Date }>("select updated_at from public.listings where id = $1", [IDS.listing]);
+      expect(rows[0]!.updated_at.getTime()).toBeGreaterThan(before.rows[0]!.updated_at.getTime());
+    });
+  });
+});
+
 describe("Suche und Suchabos", () => {
   it("filtert nach Angebot, Zimmern, Preis und liefert die Trefferzahl", async () => {
     await withSession(db, { role: "anon" }, async (s) => {
