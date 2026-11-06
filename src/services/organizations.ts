@@ -101,8 +101,9 @@ export async function getOrganizationMembers(organizationId: string): Promise<Or
 }
 
 /** Detailansicht für Mitglieder; liefert null, wenn kein Zugriff besteht. */
-export async function getOrganizationDetail(organizationId: string, userId: string, now: Date): Promise<OrganizationDetail | null> {
+export async function getOrganizationDetail(organizationId: string, userId: string): Promise<OrganizationDetail | null> {
   const supabase = await createClient();
+  const now = Date.now();
   const [{ data: organization }, { data: membership }] = await Promise.all([
     supabase.from("organizations").select("*").eq("id", organizationId).maybeSingle(),
     supabase
@@ -154,7 +155,7 @@ export async function getOrganizationDetail(organizationId: string, userId: stri
       role: i.role,
       createdAt: i.created_at,
       expiresAt: i.expires_at,
-      expired: new Date(i.expires_at).getTime() < now.getTime(),
+      expired: new Date(i.expires_at).getTime() < now,
     })),
     verification: verificationRes.data
       ? { status: verificationRes.data.status, verifiedAt: verificationRes.data.verified_at }

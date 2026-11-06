@@ -35,15 +35,22 @@ export function usePropertyAutosave({
   form,
   propertyId,
   initialValues,
+  onValuesChange,
 }: {
   form: PropertyForm;
   propertyId: string;
   initialValues: PropertyFormValues;
+  /** Wird bei jeder echten Wertänderung aufgerufen (z. B. für die Live-Vollständigkeit). */
+  onValuesChange?: (values: PropertyFormValues) => void;
 }) {
   const savedRef = React.useRef<PropertyFormValues>(initialValues);
+  const snapshotRef = React.useRef<string>(JSON.stringify(initialValues));
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const runningRef = React.useRef<Promise<boolean> | null>(null);
   const [state, setState] = React.useState<AutosaveState>({ status: "idle", savedAt: null, message: null });
+  const notifyChange = React.useEffectEvent((values: PropertyFormValues) => {
+    onValuesChange?.(values);
+  });
 
   const changedFields = React.useCallback((): PropertyFormField[] => {
     const values = form.getValues();
@@ -131,7 +138,14 @@ export function usePropertyAutosave({
   React.useEffect(() => {
     const unsubscribe = form.subscribe({
       formState: { values: true },
-      callback: () => schedule(),
+      callback: ({ values }) => {
+        // Nur echte Wertänderungen (nicht Fehler- oder Fokuswechsel) lösen das Speichern aus
+        const snapshot = JSON.stringify(values);
+        if (snapshot === snapshotRef.current) return;
+        snapshotRef.current = snapshot;
+        notifyChange(values);
+        schedule();
+      },
     });
     return () => {
       unsubscribe();
