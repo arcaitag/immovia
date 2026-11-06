@@ -72,7 +72,7 @@ export function PropertyStepNav({ propertyId, states }: { propertyId: string; st
                 href={`${base}/${step.segment}`}
                 aria-current={current ? "step" : undefined}
                 className={cn(
-                  "flex min-h-14 w-[10.5rem] items-center gap-2.5 rounded-xl border px-3 py-2 transition-colors lg:w-full lg:flex-col lg:items-start lg:gap-2 lg:py-3",
+                  "flex min-h-14 w-[11.5rem] items-center gap-2.5 rounded-xl border px-3 py-2 transition-colors lg:w-full",
                   current
                     ? "border-brand bg-mint-100 shadow-sm"
                     : "border-border bg-card hover:border-mint-300 hover:bg-mint-50",
