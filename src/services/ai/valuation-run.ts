@@ -4,6 +4,7 @@ import type { AdminSupabaseClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database";
 import { aiGenerateText } from "@/lib/ai/service";
 import { isAiConfigured } from "@/lib/ai/provider";
+import { isAiConsentRequiredError } from "@/lib/ai/consent";
 import {
   VALUATION_EXPLANATION_SYSTEM_PROMPT,
   buildValuationExplanationData,
@@ -35,7 +36,7 @@ export async function runValuation(input: {
   const now = input.now ?? new Date();
   const context = await loadPropertyContext(admin, propertyId);
   if (!context) throw new PermanentJobError("Die Immobilie wurde nicht gefunden.");
-  const settings = await loadAiSettings(admin);
+  const settings = await loadAiSettings();
   if (!settings.features.valuation) throw new PermanentJobError("Die Bewertungsfunktion ist derzeit deaktiviert.");
 
   const subject = toValuationSubject(context.property);
@@ -89,7 +90,10 @@ export async function runValuation(input: {
         console.warn("[valuation] KI-Erklärung verworfen: enthält Zahlen, die nicht in den Daten vorkommen");
       }
     } catch (error) {
-      console.warn("[valuation] KI-Erklärung nicht möglich", error instanceof Error ? error.message : error);
+      // Ohne Einwilligung (inzwischen widerrufen) oder bei KI-Fehlern bleibt es bei der regelbasierten Erklärung
+      if (!isAiConsentRequiredError(error)) {
+        console.warn("[valuation] KI-Erklärung nicht möglich", error instanceof Error ? error.message : error);
+      }
     }
   }
 

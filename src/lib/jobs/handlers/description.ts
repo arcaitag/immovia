@@ -14,6 +14,7 @@ import {
   rephraseTextSchema,
 } from "@/lib/ai/prompts/description";
 import { PermanentJobError, type JobHandler } from "@/lib/jobs/types";
+import { loadAiSettings } from "@/services/ai/settings";
 import { loadPropertyContext } from "@/services/ai/property-data";
 
 /**
@@ -35,6 +36,10 @@ export const descriptionJobHandler: JobHandler = async ({ job, admin }) => {
   const parsed = descriptionJobInputSchema.safeParse(job.input);
   if (!parsed.success || !job.property_id) throw new PermanentJobError("Ungültiger Auftrag für die Texterstellung.");
   const input = parsed.data;
+
+  // Admin-Schalter auch zur Laufzeit beachten (Einwilligung prüft aiGenerateStructured vor dem Aufruf)
+  const settings = await loadAiSettings();
+  if (!settings.features.ai_descriptions) throw new PermanentJobError("Die KI-Texterstellung ist derzeit deaktiviert.");
 
   const context = await loadPropertyContext(admin, job.property_id);
   if (!context) throw new PermanentJobError("Die Immobilie wurde nicht gefunden.");

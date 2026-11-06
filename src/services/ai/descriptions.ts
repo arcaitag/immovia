@@ -5,7 +5,8 @@ import type { SessionUser } from "@/lib/auth/session";
 import { AppError, fromDbError } from "@/lib/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
-import type { Json, TablesInsert, TablesUpdate } from "@/types/database";
+import type { Json, TablesUpdate } from "@/types/database";
+import { revalidatePropertyViews } from "@/lib/properties/revalidate";
 import { normalizeForCompare } from "@/lib/ai/swiss";
 import {
   DESCRIPTION_SECTIONS,
@@ -14,7 +15,7 @@ import {
   type DescriptionSectionKey,
 } from "@/lib/ai/prompts/description";
 import { assertAvailable, enforceRateLimit, enqueueAndRun, getFeatureAvailability, requireManagedProperty } from "@/services/ai/access";
-import { revalidateProperty } from "@/services/ai/revalidate";
+import { ensureOpenListing, syncDraftStatus } from "@/services/listings";
 
 /**
  * KI-Inseratetexte: Aufträge einreihen und Abschnitte ins Inserat übernehmen.
@@ -74,25 +75,6 @@ function valueKey(value: string | string[]): string {
   return Array.isArray(value) ? value.map((v) => normalizeForCompare(v)).filter(Boolean).join("\n") : normalizeForCompare(value);
 }
 
-/** Lädt bzw. erstellt das offene Inserat eines Objekts (Benutzer-Client, RLS). */
-async function ensureListing(supabase: ServerSupabaseClient, propertyId: string) {
-  const select = "id, slug, title, short_description, description, location_description, equipment_description, highlights, search_summary, texts_confirmed_at";
-  const find = () =>
-    supabase.from("listings").select(select).eq("property_id", propertyId).is("deleted_at", null).neq("status", "archived").maybeSingle();
-  const { data: existing } = await find();
-  if (existing) return existing;
-  // owner_id und offer_type setzt der Trigger listings_before_write aus der Immobilie; diese Spalten
-  // dürfen Benutzer nicht senden (Spaltenrechte). Daher nur property_id (Typ verlangt sie trotzdem).
-  const draft = { property_id: propertyId } as TablesInsert<"listings">;
-  const { data: created, error } = await supabase.from("listings").insert(draft).select(select).single();
-  if (created) return created;
-  if (error?.code === "23505") {
-    const { data: again } = await find();
-    if (again) return again;
-  }
-  throw fromDbError(error);
-}
-
 export interface ApplyResult {
   applied: boolean;
   needsConfirmation: boolean;
@@ -121,7 +103,9 @@ export async function applyDescriptionSection(supabase: ServerSupabaseClient, us
     .maybeSingle();
   if (!version || version.property_id !== propertyId) throw new AppError("not_found", "Die Textversion wurde nicht gefunden.");
 
-  const listing = await ensureListing(supabase, propertyId);
+  // Offenes Inserat (oder neuer Entwurf inkl. privater Kontaktangaben) über den Verkäuferbereich
+  const listing = await ensureOpenListing(supabase, user, propertyId);
+  if (listing.status === "archived") throw new AppError("invalid_state", "Archivierte Inserate können nicht mehr bearbeitet werden.");
   const column = DESCRIPTION_SECTIONS[section].listingColumn;
   const current = listing[column] as string | string[] | null;
   const currentKey = current === null ? "" : valueKey(current);
@@ -178,8 +162,18 @@ export async function applyDescriptionSection(supabase: ServerSupabaseClient, us
     console.warn("[ai] Übernahme konnte nicht vermerkt werden", error);
   }
 
-  await revalidateProperty(supabase, propertyId, [`/dashboard/immobilien/${propertyId}/beschreibung`]);
+  await afterListingTextChange(supabase, propertyId, listing.slug);
   return { applied: true, needsConfirmation: false };
+}
+
+/** Status der Vorstufen nachführen (Texte müssen neu bestätigt werden) und Ansichten aktualisieren. */
+async function afterListingTextChange(supabase: ServerSupabaseClient, propertyId: string, slug: string | null): Promise<void> {
+  try {
+    await syncDraftStatus(supabase, propertyId);
+  } catch (error) {
+    console.warn("[ai] Inseratstatus konnte nicht nachgeführt werden", error);
+  }
+  revalidatePropertyViews({ publicSlugs: [slug] });
 }
 
 /** Bestätigt die Inseratetexte (Pflicht vor der Veröffentlichung). */
@@ -187,7 +181,7 @@ export async function confirmListingTexts(supabase: ServerSupabaseClient, user: 
   await requireManagedProperty(supabase, user, propertyId);
   const { data: listing } = await supabase
     .from("listings")
-    .select("id, title, description")
+    .select("id, slug, title, description")
     .eq("property_id", propertyId)
     .is("deleted_at", null)
     .neq("status", "archived")
@@ -198,5 +192,5 @@ export async function confirmListingTexts(supabase: ServerSupabaseClient, user: 
   }
   const { error } = await supabase.from("listings").update({ texts_confirmed_at: new Date().toISOString() }).eq("id", listing.id);
   if (error) throw fromDbError(error);
-  await revalidateProperty(supabase, propertyId, [`/dashboard/immobilien/${propertyId}/beschreibung`]);
+  await afterListingTextChange(supabase, propertyId, listing.slug);
 }

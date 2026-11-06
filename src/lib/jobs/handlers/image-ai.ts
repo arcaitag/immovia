@@ -8,13 +8,17 @@ import { getImageAiProvider } from "@/lib/images/ai-providers";
 import { IMAGE_AI_CAPABILITIES, STAGING_ROOM_TYPES, STAGING_STYLES } from "@/lib/images/ai-providers/types";
 import { PermanentJobError, type JobHandler } from "@/lib/jobs/types";
 import { logAiUsage } from "@/lib/ai/usage";
+import { assertAiConsent } from "@/lib/ai/consent";
 import { IMAGE_SOURCE_COLUMNS, loadImageSource } from "@/services/ai/image-source";
+import { loadAiSettings } from "@/services/ai/settings";
 
 /**
  * Jobs «virtual_staging» und «image_enhance» (Perspektive) über einen externen Bild-KI-Anbieter.
  * Ohne konfigurierten Anbieter: PermanentJobError (keine erfundenen Ergebnisse).
  * Das Ergebnis wird als NEUES Bild gespeichert (source_image_id = Original), virtuelle
  * Möblierung mit is_ai_visualization = true (sichtbare Kennzeichnung).
+ * Vor dem Aufruf des Anbieters: Admin-Schalter image_ai, Einwilligung zur KI-Verarbeitung und
+ * Höchstzahl Bilder pro Objekt (publishing.max_images) werden erneut geprüft.
  */
 
 const roomTypes = Object.keys(STAGING_ROOM_TYPES) as [keyof typeof STAGING_ROOM_TYPES, ...(keyof typeof STAGING_ROOM_TYPES)[]];
@@ -37,6 +41,17 @@ export const imageAiJobHandler: JobHandler = async ({ job, admin }) => {
   const provider = getImageAiProvider(input.capability);
   if (!provider) {
     throw new PermanentJobError("Für diese Funktion ist kein Bild-KI-Anbieter konfiguriert. Es wurde nichts verändert.");
+  }
+  const settings = await loadAiSettings();
+  if (!settings.features.image_ai) throw new PermanentJobError("Die Bild-KI ist derzeit deaktiviert. Es wurde nichts verändert.");
+  // Ohne Einwilligung kein Aufruf des Anbieters (AppError gilt in der Warteschlange als endgültig)
+  await assertAiConsent(job.user_id, admin);
+  const { count: imageCount } = await admin
+    .from("property_images")
+    .select("id", { count: "exact", head: true })
+    .eq("property_id", job.property_id);
+  if ((imageCount ?? 0) >= settings.maxImages) {
+    throw new PermanentJobError(`Die Höchstzahl von ${settings.maxImages} Bildern pro Objekt ist erreicht. Bitte entfernen Sie zuerst ein Bild.`);
   }
 
   const { data: image } = await admin
@@ -96,6 +111,7 @@ export const imageAiJobHandler: JobHandler = async ({ job, admin }) => {
   if (insertError) throw new Error(`Bild konnte nicht gespeichert werden: ${insertError.message}`);
 
   await admin.from("image_transformations").insert({
+    id: randomUUID(),
     image_id: image.id,
     user_id: job.user_id,
     provider: provider.id,

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth/session";
@@ -19,6 +20,7 @@ import {
 } from "@/services/ai/access";
 import { IMAGE_SOURCE_COLUMNS, loadImageSource, type ImageSourceRow } from "@/services/ai/image-source";
 import { revalidateProperty } from "@/services/ai/revalidate";
+import { loadAiSettings } from "@/services/ai/settings";
 
 /**
  * Bilderstudio: automatische Optimierung (Bildverarbeitung mit sharp, keine KI),
@@ -118,6 +120,9 @@ export async function acceptImageEnhancement(supabase: ServerSupabaseClient, use
   if (!adjustments.success) throw new AppError("validation", "Ungültige Einstellungen.");
   const image = await loadStudioImage(supabase, user, imageId);
   assertEditable(image);
+  // Grundkorrekturen sind keine KI: Der Admin-Schalter image_ai betrifft nur die KI-Funktionen,
+  // das Kontingent image_enhance_per_month gilt aber auch hier.
+  const settings = await loadAiSettings();
   assertAvailable(
     await getFeatureAvailability({
       supabase,
@@ -126,10 +131,8 @@ export async function acceptImageEnhancement(supabase: ServerSupabaseClient, use
       quotaFeature: "image_enhance",
       requiresAi: false,
       requiresConsent: false,
-    }).then((availability) =>
-      // Grundkorrekturen sind keine KI: der Schalter image_ai betrifft nur die KI-Funktionen
-      availability.reason === "feature_disabled" ? { available: true } : availability,
-    ),
+      settings: { ...settings, features: { ...settings.features, image_ai: true } },
+    }),
   );
 
   const source = await loadImageSource(supabase, image);
@@ -151,13 +154,21 @@ export async function acceptImageEnhancement(supabase: ServerSupabaseClient, use
     await removeVariants(supabase, prefix);
     throw fromDbError(updateError);
   }
-  const { data: transformation } = await supabase
-    .from("image_transformations")
-    .insert({ image_id: image.id, provider: "sharp", kind: "enhance", operations: adjustments.data as unknown as Json, status: "accepted", output_path: prefix })
-    .select("id")
-    .single();
-  if (transformation) {
-    await supabase.from("image_transformations").update({ accepted_at: new Date().toISOString() }).eq("id", transformation.id);
+  // ID im Code erzeugen und ohne RETURNING einfügen; accepted_at ist nur per Update beschreibbar
+  const transformationId = randomUUID();
+  const { error: transformationError } = await supabase.from("image_transformations").insert({
+    id: transformationId,
+    image_id: image.id,
+    provider: "sharp",
+    kind: "enhance",
+    operations: adjustments.data as unknown as Json,
+    status: "accepted",
+    output_path: prefix,
+  });
+  if (transformationError) {
+    console.warn("[bilderstudio] Bearbeitung konnte nicht protokolliert werden", transformationError.message);
+  } else {
+    await supabase.from("image_transformations").update({ accepted_at: new Date().toISOString() }).eq("id", transformationId);
   }
   if (isEnhancedPrefix(image, previous)) await removeVariants(supabase, previous);
   await logAiUsage({ userId: user.id, feature: "image_enhance", provider: "sharp", imageCount: 1, success: true });
@@ -210,6 +221,7 @@ export async function requestImageAi(supabase: ServerSupabaseClient, user: Sessi
   if (!getImageAiProvider(input.capability)) {
     throw new AppError("service_unavailable", "Für diese Funktion ist kein Bild-KI-Anbieter eingerichtet.");
   }
+  const settings = await loadAiSettings();
   assertAvailable(
     await getFeatureAvailability({
       supabase,
@@ -218,8 +230,17 @@ export async function requestImageAi(supabase: ServerSupabaseClient, user: Sessi
       quotaFeature: input.capability === "virtual_staging" ? "virtual_staging" : "image_enhance",
       requiresAi: false,
       requiresConsent: true,
+      settings,
     }),
   );
+  // Das Ergebnis wird ein neues Bild: Höchstzahl Bilder pro Objekt beachten (publishing.max_images)
+  const { count: imageCount } = await supabase
+    .from("property_images")
+    .select("id", { count: "exact", head: true })
+    .eq("property_id", image.property_id);
+  if ((imageCount ?? 0) >= settings.maxImages) {
+    throw new AppError("validation", `Sie haben die maximale Anzahl von ${settings.maxImages} Bildern erreicht. Entfernen Sie zuerst ein Bild.`);
+  }
   await enforceRateLimit(`image-ai:${user.id}`, 5, 60);
   const job = await enqueueAndRun({
     userId: user.id,

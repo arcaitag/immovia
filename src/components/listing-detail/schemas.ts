@@ -23,13 +23,6 @@ export type InquiryFormValues = z.infer<typeof inquiryFormSchema>;
 export const inquirySchema = inquiryFormSchema.extend({ listingId: z.uuid("Ungültiges Inserat.") });
 export type InquiryInput = z.infer<typeof inquirySchema>;
 
-export const bookViewingSchema = z.object({
-  listingId: z.uuid("Ungültiges Inserat."),
-  slotId: z.uuid("Bitte wählen Sie ein Zeitfenster."),
-  message: z.string().trim().max(1000, "Die Nachricht darf höchstens 1000 Zeichen lang sein."),
-});
-export type BookViewingInput = z.infer<typeof bookViewingSchema>;
-
 const reasonKeys = Object.keys(REPORT_REASONS) as [ReportReason, ...ReportReason[]];
 
 export const reportFormSchema = z.object({

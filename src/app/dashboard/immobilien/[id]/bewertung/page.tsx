@@ -32,7 +32,7 @@ export default async function ValuationPage({
   // Lädt die Immobilie mit dem Benutzer-Client und prüft die Verwaltungsberechtigung (404 sonst)
   const ws = await getPropertyWorkspace(id);
   const supabase = await createClient();
-  const settings = await loadAiSettings(supabase);
+  const settings = await loadAiSettings();
 
   const { data: valuations } = await supabase
     .from("property_valuations")

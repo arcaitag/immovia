@@ -140,3 +140,10 @@ create publication supabase_realtime;
 
 -- Hinweis: Bewusst KEINE automatischen Default-Privileges (wie neuere Supabase-Projekte).
 -- Die Migrationen müssen alle benötigten Rechte selbst vergeben.
+
+-- Wie auf Supabase: Objekte, die postgres im Schema public anlegt, erhalten standardmässig volle
+-- Rechte für die API-Rollen (Tabellen arwdDxtm, Sequenzen rwU, Funktionen EXECUTE). Migrationen
+-- müssen diese Rechte gezielt einschränken; tests/db/privileges.test.ts prüft das Ergebnis.
+alter default privileges for role postgres in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges for role postgres in schema public grant all on sequences to anon, authenticated, service_role;
+alter default privileges for role postgres in schema public grant all on functions to anon, authenticated, service_role;

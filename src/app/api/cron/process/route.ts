@@ -8,8 +8,10 @@ import { runScheduledTasks } from "@/lib/jobs/scheduled";
 export const maxDuration = 300;
 
 /**
- * Cron-Endpoint für Hintergrundaufgaben: Jobs nachholen, E-Mails versenden,
- * Erinnerungen und Zusammenfassungen, Aufräumen. Geschützt mit CRON_SECRET.
+ * Cron-Endpoint für Hintergrundaufgaben, geschützt mit CRON_SECRET.
+ * - Ohne Parameter (alle 5 Minuten, Supabase pg_cron): Jobs nachholen und E-Mails versenden.
+ * - Mit ?scheduled=1 (stündlich bzw. täglich über Vercel Cron): zusätzlich Erinnerungen,
+ *   Zusammenfassungen und Aufräumarbeiten.
  */
 export async function GET(request: NextRequest) {
   const secret = serverEnv.cronSecret;
@@ -22,10 +24,11 @@ export async function GET(request: NextRequest) {
   }
 
   const started = Date.now();
+  const full = request.nextUrl.searchParams.get("scheduled") === "1";
   const jobs = await processPendingJobs(10);
-  const scheduled = await runScheduledTasks();
+  const scheduled = full ? await runScheduledTasks() : null;
   const emails = await processEmailOutbox(50);
-  await createAdminClient().rpc("cleanup_rate_limits");
+  if (full) await createAdminClient().rpc("cleanup_rate_limits");
 
   return NextResponse.json({ ok: true, jobs, scheduled, emails, durationMs: Date.now() - started });
 }

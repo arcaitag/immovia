@@ -1,12 +1,16 @@
 import "server-only";
 
 import { createElement } from "react";
+import { after } from "next/server";
 import { z } from "zod";
 import type { Json } from "@/types/database";
 import { PermanentJobError, type JobHandler } from "@/lib/jobs/types";
 import { DossierDocument } from "@/lib/pdf/dossier/document";
 import { dossierOptionsSchema } from "@/lib/pdf/dossier/options";
 import { renderPdf } from "@/lib/pdf/render";
+import { queueEmail } from "@/lib/email/queue";
+import { flushEmailOutbox } from "@/lib/email/outbox";
+import type { AdminSupabaseClient } from "@/lib/supabase/admin";
 import { buildDossierContent } from "@/services/ai/dossier-data";
 import { loadAiSettings } from "@/services/ai/settings";
 
@@ -24,7 +28,7 @@ export const dossierJobHandler: JobHandler = async ({ job, admin }) => {
   const propertyId = job.property_id;
   const options = parsed.data.options;
 
-  const settings = await loadAiSettings(admin);
+  const settings = await loadAiSettings();
   if (!settings.features.dossiers) throw new PermanentJobError("Die Dossier-Funktion ist derzeit deaktiviert.");
 
   const built = await buildDossierContent({ client: admin, propertyId, options, isPreview: false });
@@ -76,6 +80,13 @@ export const dossierJobHandler: JobHandler = async ({ job, admin }) => {
       .update({ status: "ready", storage_path: storagePath, file_size: buffer.length, page_count: pageCount, error_message: null })
       .eq("id", dossier.id);
     if (updateError) throw new Error(updateError.message);
+    await notifyDossierReady(admin, {
+      userId: job.user_id,
+      propertyId,
+      dossierId: dossier.id,
+      title: built.content.title,
+      version: dossier.version,
+    });
     return { dossierId: dossier.id, version: dossier.version, pageCount, fileSize: buffer.length, skippedImages: built.skippedImages };
   } catch (error) {
     await admin
@@ -85,3 +96,33 @@ export const dossierJobHandler: JobHandler = async ({ job, admin }) => {
     throw error;
   }
 };
+
+/**
+ * E-Mail «Dossier fertig» an die erstellende Person (Einstellung email_listing_updates).
+ * dedupeKey verhindert Doppelversand bei einer Wiederholung des Auftrags. Fehler beim
+ * Einreihen oder Versenden lassen den Auftrag nicht scheitern.
+ */
+async function notifyDossierReady(
+  admin: AdminSupabaseClient,
+  input: { userId: string | null; propertyId: string; dossierId: string; title: string; version: number },
+): Promise<void> {
+  if (!input.userId) return;
+  try {
+    const queued = await queueEmail(admin, {
+      userId: input.userId,
+      template: "dossier_ready",
+      setting: "email_listing_updates",
+      payload: { property_id: input.propertyId, dossier_id: input.dossierId, title: input.title, version: input.version },
+      dedupeKey: `dossier_ready:${input.dossierId}`,
+    });
+    if (!queued) return;
+    try {
+      after(() => flushEmailOutbox());
+    } catch {
+      // Ausserhalb eines Requests (z. B. direkter Aufruf): sofort versenden
+      await flushEmailOutbox();
+    }
+  } catch (error) {
+    console.warn("[dossier] E-Mail «Dossier fertig» konnte nicht eingereiht werden", error);
+  }
+}

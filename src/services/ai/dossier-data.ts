@@ -28,7 +28,7 @@ import { loadPropertyContext } from "@/services/ai/property-data";
  */
 
 export const LISTING_DOSSIER_COLUMNS =
-  "id, slug, status, title, short_description, description, location_description, equipment_description, highlights, price, price_on_request, additional_costs, public_address, contact_name, contact_phone, contact_email, show_contact_phone, dossier_public, moderation_status";
+  "id, slug, status, title, short_description, description, location_description, equipment_description, highlights, price, price_on_request, additional_costs, public_address, contact_name, show_contact_phone, dossier_public, moderation_status";
 
 type ListingForDossier = Pick<
   Tables<"listings">,
@@ -46,8 +46,6 @@ type ListingForDossier = Pick<
   | "additional_costs"
   | "public_address"
   | "contact_name"
-  | "contact_phone"
-  | "contact_email"
   | "show_contact_phone"
   | "dossier_public"
   | "moderation_status"
@@ -74,6 +72,19 @@ export async function loadOpenListing(client: DbClient, propertyId: string): Pro
     .neq("status", "archived")
     .maybeSingle();
   return data ?? null;
+}
+
+/**
+ * Private Kontaktangaben (listing_contacts): lesbar für Verwaltende (RLS) und per Service Role.
+ * Fehlt die Zeile oder ist sie nicht lesbar, enthält das Dossier nur den Namen.
+ */
+export async function loadDossierContact(
+  client: DbClient,
+  listingId: string,
+): Promise<{ contact_email: string | null; contact_phone: string | null }> {
+  const { data, error } = await client.from("listing_contacts").select("contact_email, contact_phone").eq("listing_id", listingId).maybeSingle();
+  if (error) console.warn("[dossier] Kontaktangaben nicht lesbar", error.message);
+  return { contact_email: data?.contact_email ?? null, contact_phone: data?.contact_phone ?? null };
 }
 
 export async function loadDossierImages(client: DbClient, propertyId: string): Promise<DossierImageRow[]> {
@@ -237,19 +248,24 @@ export async function buildDossierContent(input: BuildDossierInput): Promise<Bui
   });
 
   const overrideContact = options.contact && Object.values(options.contact).some((v) => typeof v === "string" && v.trim());
-  const contact = overrideContact
-    ? {
-        name: options.contact?.name?.trim() || null,
-        company: options.contact?.company?.trim() || null,
-        phone: options.contact?.phone?.trim() || null,
-        email: options.contact?.email?.trim() || null,
-      }
-    : {
-        name: listing?.contact_name ?? null,
-        company: null,
-        phone: listing?.show_contact_phone ? (listing.contact_phone ?? null) : null,
-        email: listing?.contact_email ?? null,
-      };
+  let contact: DossierContent["contact"];
+  if (overrideContact) {
+    contact = {
+      name: options.contact?.name?.trim() || null,
+      company: options.contact?.company?.trim() || null,
+      phone: options.contact?.phone?.trim() || null,
+      email: options.contact?.email?.trim() || null,
+    };
+  } else {
+    const privateContact = listing ? await loadDossierContact(client, listing.id) : null;
+    contact = {
+      name: listing?.contact_name?.trim() || null,
+      company: null,
+      // Telefon nur, wenn es auch im Inserat angezeigt werden darf; E-Mail nur, wenn vorhanden
+      phone: listing?.show_contact_phone ? privateContact?.contact_phone?.trim() || null : null,
+      email: privateContact?.contact_email?.trim() || null,
+    };
+  }
 
   const isPublished = listing && (listing.status === "published" || listing.status === "reserved") && listing.moderation_status !== "blocked";
   const listingUrl = isPublished && listing?.slug ? `${publicEnv.siteUrl}/immobilien/${listing.slug}` : null;

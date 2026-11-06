@@ -1,9 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import { AppError } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAiConsentRequiredError } from "@/lib/ai/consent";
 import { aiStreamText } from "@/lib/ai/service";
 import { buildAssistantSystemPrompt } from "@/lib/ai/prompts/assistant";
 import type { AiMessage } from "@/lib/ai/types";
@@ -29,8 +31,14 @@ const bodySchema = z.object({
 
 const HISTORY_LIMIT = 20;
 
-function jsonError(message: string, status: number) {
-  return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });
+function jsonError(message: string, status: number, extra: Record<string, unknown> = {}) {
+  return NextResponse.json({ error: message, ...extra }, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+/** Fehlerantwort; fehlende KI-Einwilligung ist für die Oberfläche erkennbar (Einwilligungsdialog). */
+function errorResponse(error: AppError) {
+  if (isAiConsentRequiredError(error)) return jsonError(error.message, 403, { consentRequired: true });
+  return jsonError(error.message, statusFor(error));
 }
 
 function statusFor(error: AppError): number {
@@ -112,16 +120,16 @@ export async function POST(request: NextRequest) {
     } else {
       propertyId = input.propertyId ?? null;
       if (propertyId) await requireManagedProperty(supabase, user, propertyId);
-      const { data: created, error } = await supabase
+      // ID im Code erzeugen und ohne RETURNING einfügen (robust gegenüber RLS beim Zurücklesen)
+      const newThreadId = randomUUID();
+      const { error } = await supabase
         .from("assistant_threads")
-        .insert({ title: truncate(input.message.replace(/\s+/g, " "), 80), property_id: propertyId })
-        .select("id")
-        .single();
-      if (error || !created) throw new AppError("unknown", "Das Gespräch konnte nicht angelegt werden.");
-      threadId = created.id;
+        .insert({ id: newThreadId, title: truncate(input.message.replace(/\s+/g, " "), 80), property_id: propertyId });
+      if (error) throw new AppError("unknown", "Das Gespräch konnte nicht angelegt werden.");
+      threadId = newThreadId;
     }
   } catch (error) {
-    if (error instanceof AppError) return jsonError(error.message, statusFor(error));
+    if (error instanceof AppError) return errorResponse(error);
     console.error("[assistant] Vorbereitung fehlgeschlagen", error);
     return jsonError("Der Assistent ist im Moment nicht verfügbar.", 500);
   }
@@ -178,8 +186,12 @@ export async function POST(request: NextRequest) {
           error instanceof AppError || (error instanceof Error && /KI|Dienst/.test(error.message))
             ? error.message
             : "Die Antwort konnte nicht erstellt werden. Bitte versuchen Sie es erneut.";
-        console.error("[assistant] Antwort fehlgeschlagen", error);
-        send({ type: "error", message });
+        if (isAiConsentRequiredError(error)) {
+          send({ type: "error", message, consentRequired: true });
+        } else {
+          console.error("[assistant] Antwort fehlgeschlagen", error);
+          send({ type: "error", message });
+        }
       }
       try {
         controller.close();

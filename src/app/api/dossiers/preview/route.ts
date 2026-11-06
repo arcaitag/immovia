@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     await requireManagedProperty(supabase, user, propertyId);
-    const settings = await loadAiSettings(supabase);
+    const settings = await loadAiSettings();
     if (!settings.features.dossiers) throw new AppError("service_unavailable", "Die Dossier-Funktion ist derzeit deaktiviert.");
     await enforceRateLimit(`dossier-preview:${user.id}`, 30, 60);
 

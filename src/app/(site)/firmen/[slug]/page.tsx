@@ -3,14 +3,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
-import { Building2, Globe, Mail, MapPin, Phone } from "lucide-react";
+import { BadgeCheck, Building2, Globe, Mail, MapPin, Phone } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { ListingCard } from "@/components/property/listing-card";
 import { createPublicClient } from "@/lib/supabase/public";
 import { propertyImageUrl, publicStorageUrl } from "@/lib/storage";
 import { cantonName } from "@/lib/constants";
-import { formatPhone, pluralize } from "@/lib/format";
+import { formatDateLong, formatPhone, pluralize } from "@/lib/format";
 import { mapSearchRow, type ListingCardData } from "@/types/domain";
 import { JsonLd } from "@/lib/seo/json-ld";
 import { pageMetadata } from "@/lib/seo/metadata";
@@ -36,12 +37,14 @@ const getCompany = cache(async (slug: string) => {
   if (error) return { kind: "error" as const };
   if (!org) return { kind: "not_found" as const };
 
-  const { data: listingRows } = await supabase
-    .from("listings")
-    .select("id")
-    .eq("organization_id", org.id)
-    .order("published_at", { ascending: false })
-    .limit(100);
+  const [{ data: listingRows }, verificationsRes] = await Promise.all([
+    supabase.from("listings").select("id").eq("organization_id", org.id).order("published_at", { ascending: false }).limit(100),
+    // Nur Art und Datum (keine Notizen, Methode oder prüfende Person)
+    supabase.rpc("get_public_verifications", { p_subject_type: "organization", p_subject_id: org.id }),
+  ]);
+  if (verificationsRes.error) console.error("[firma] Prüfvermerke nicht geladen", verificationsRes.error.message);
+  const orgVerification = (verificationsRes.data ?? []).find((v) => v.kind === "organization");
+  const verification = orgVerification ? { verifiedAt: orgVerification.verified_at } : null;
   const ids = (listingRows ?? []).map((l) => l.id);
   let listings: ListingCardData[] = [];
   if (ids.length) {
@@ -50,7 +53,7 @@ const getCompany = cache(async (slug: string) => {
       mapSearchRow(row, propertyImageUrl({ display_path: row.cover_path, external_url: row.cover_external_url }, "md")),
     );
   }
-  return { kind: "company" as const, org, listings };
+  return { kind: "company" as const, org, listings, verification };
 });
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -74,7 +77,7 @@ export default async function FirmenProfilPage({ params }: Props) {
   const data = await getCompany(slug);
   if (data.kind === "not_found") notFound();
   if (data.kind === "error") throw new Error("Das Firmenprofil konnte nicht geladen werden.");
-  const { org, listings } = data;
+  const { org, listings, verification } = data;
   const logo = publicStorageUrl("org-logos", org.logo_path);
   const address = [org.street, [org.postal_code, org.city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
   const websiteLabel = org.website?.replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -126,6 +129,17 @@ export default async function FirmenProfilPage({ params }: Props) {
                   {org.city}
                   {org.canton ? `, ${cantonName(org.canton)}` : ""}
                 </p>
+              ) : null}
+              {verification ? (
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <Badge tone="green" className="px-3 py-1 text-[0.8125rem]">
+                    <BadgeCheck aria-hidden /> Firma verifiziert
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    Von Immovia manuell geprüft, z. B. anhand des Handelsregisters
+                    {verification.verifiedAt ? ` (${formatDateLong(verification.verifiedAt)})` : ""}.
+                  </span>
+                </div>
               ) : null}
               {org.description ? <p className="mt-5 max-w-2xl whitespace-pre-line leading-relaxed text-foreground/80">{org.description}</p> : null}
             </div>

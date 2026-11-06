@@ -8,9 +8,13 @@ import type { DocumentCategory, FeatureKey, RenovationCategory } from "@/lib/con
 import { FEATURE_CATALOG, RENOVATION_CATEGORIES } from "@/lib/constants";
 import type { ListingCardData } from "@/types/domain";
 
-/** Nur öffentlich bestimmte Spalten des Inserats (keine Moderations- oder Verwaltungsdaten). */
+/**
+ * Nur öffentlich bestimmte Spalten des Inserats (keine Moderations- oder Verwaltungsdaten).
+ * Kontakt-E-Mail und -Telefon liegen in listing_contacts (nur Verwaltende); das freigegebene
+ * Telefon liefert get_listing_public_contact.
+ */
 const LISTING_COLUMNS =
-  "id, property_id, owner_id, organization_id, slug, offer_type, status, title, short_description, description, location_description, equipment_description, highlights, search_summary, price, price_on_request, additional_costs, parking_price, location_precision, public_address, public_latitude, public_longitude, contact_name, contact_phone, show_contact_phone, dossier_public, property_type, postal_code, municipality, canton, rooms, living_area, usable_area, plot_area, year_built, year_renovated, floor, floors_total, bathrooms, condition, heating_type, energy_label, has_balcony, has_terrace, has_garden, has_garage, has_elevator, has_cellar, has_attic, is_wheelchair_accessible, is_minergie, pets_allowed, parking_spaces, available_from, available_by_arrangement, ownership_type, published_at, first_published_at, updated_at, is_demo";
+  "id, property_id, owner_id, organization_id, slug, offer_type, status, title, short_description, description, location_description, equipment_description, highlights, search_summary, price, price_on_request, additional_costs, parking_price, location_precision, public_address, public_latitude, public_longitude, contact_name, show_contact_phone, dossier_public, property_type, postal_code, municipality, canton, rooms, living_area, usable_area, plot_area, year_built, year_renovated, floor, floors_total, bathrooms, condition, heating_type, energy_label, has_balcony, has_terrace, has_garden, has_garage, has_elevator, has_cellar, has_attic, is_wheelchair_accessible, is_minergie, pets_allowed, parking_spaces, available_from, available_by_arrangement, ownership_type, published_at, first_published_at, updated_at, is_demo";
 
 export interface GalleryImage {
   id: string;
@@ -63,37 +67,44 @@ async function loadListing(slug: string) {
   }
 
   const pid = listing.property_id;
-  const [imagesRes, featuresRes, renovationsRes, profileRes, orgRes, documentsRes, verificationsRes, dossierRes] = await Promise.all([
-    supabase
-      .from("property_images")
-      .select("id, display_path, base_path, external_url, caption, is_floor_plan, is_enhanced, is_ai_visualization, source_image_id, width, height")
-      .eq("property_id", pid)
-      .eq("status", "ready")
-      .order("is_cover", { ascending: false })
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true }),
-    supabase.from("property_features").select("feature_key").eq("property_id", pid),
-    supabase.from("property_renovations").select("id, year, category, description").eq("property_id", pid).order("year", { ascending: false }),
-    supabase
-      .from("public_profiles")
-      .select("display_name, avatar_path, account_type, member_since, email_verified, identity_verified")
-      .eq("id", listing.owner_id)
-      .maybeSingle(),
-    listing.organization_id
-      ? supabase.from("organizations").select("name, slug, logo_path").eq("id", listing.organization_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase
-      .from("property_documents")
-      .select("id, title, category, mime_type, size_bytes")
-      .eq("property_id", pid)
-      .eq("visibility", "public")
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true }),
-    supabase.from("verifications").select("kind").eq("subject_type", "property").eq("subject_id", pid).eq("status", "verified"),
-    listing.dossier_public
-      ? supabase.from("generated_dossiers").select("id").eq("property_id", pid).eq("is_public", true).eq("status", "ready").limit(1).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  const [imagesRes, featuresRes, renovationsRes, profileRes, orgRes, documentsRes, verificationsRes, orgVerificationsRes, contactRes, dossierRes] =
+    await Promise.all([
+      supabase
+        .from("property_images")
+        .select("id, display_path, base_path, external_url, caption, is_floor_plan, is_enhanced, is_ai_visualization, source_image_id, width, height")
+        .eq("property_id", pid)
+        .eq("status", "ready")
+        .order("is_cover", { ascending: false })
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+      supabase.from("property_features").select("feature_key").eq("property_id", pid),
+      supabase.from("property_renovations").select("id, year, category, description").eq("property_id", pid).order("year", { ascending: false }),
+      supabase
+        .from("public_profiles")
+        .select("display_name, avatar_path, account_type, member_since, email_verified, identity_verified")
+        .eq("id", listing.owner_id)
+        .maybeSingle(),
+      listing.organization_id
+        ? supabase.from("organizations").select("name, slug, logo_path").eq("id", listing.organization_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase
+        .from("property_documents")
+        .select("id, title, category, mime_type, size_bytes")
+        .eq("property_id", pid)
+        .eq("visibility", "public")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true }),
+      // Nur Art und Datum verifizierter Prüfungen öffentlicher Objekte bzw. Firmen (keine internen Angaben)
+      supabase.rpc("get_public_verifications", { p_subject_type: "property", p_subject_id: pid }),
+      listing.organization_id
+        ? supabase.rpc("get_public_verifications", { p_subject_type: "organization", p_subject_id: listing.organization_id })
+        : Promise.resolve({ data: null, error: null }),
+      // Name und – nur falls freigegeben (show_contact_phone) – Telefonnummer
+      supabase.rpc("get_listing_public_contact", { p_listing_id: listing.id }),
+      listing.dossier_public
+        ? supabase.from("generated_dossiers").select("id").eq("property_id", pid).eq("is_public", true).eq("status", "ready").limit(1).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
   const title = listing.title ?? "Inserat";
   const rows = imagesRes.data ?? [];
@@ -154,7 +165,12 @@ async function loadListing(slug: string) {
     mimeType: d.mime_type,
     sizeBytes: d.size_bytes,
   }));
+  for (const res of [verificationsRes, orgVerificationsRes, contactRes]) {
+    if (res.error) console.error("[inserat] Öffentliche Zusatzdaten nicht geladen", res.error.message);
+  }
   const verifiedKinds = new Set((verificationsRes.data ?? []).map((v) => v.kind));
+  const organizationVerified = Boolean(org && (orgVerificationsRes.data ?? []).some((v) => v.kind === "organization"));
+  const contactPhone = listing.show_contact_phone ? (contactRes.data?.[0]?.contact_phone ?? null) : null;
 
   return {
     kind: "listing" as const,
@@ -169,7 +185,10 @@ async function loadListing(slug: string) {
     verifications: {
       ownership: verifiedKinds.has("ownership"),
       documentationComplete: verifiedKinds.has("documentation_complete"),
+      organization: organizationVerified,
     },
+    /** Nur gesetzt, wenn die Telefonnummer zur Anzeige freigegeben ist. */
+    contactPhone,
     hasPublicDossier: Boolean(dossierRes.data),
   };
 }

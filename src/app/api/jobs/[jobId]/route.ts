@@ -3,7 +3,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { isServiceRoleConfigured } from "@/lib/supabase/admin";
 import { runJobNow } from "@/lib/jobs/queue";
-import type { JobStatusDto } from "@/lib/ai/job-status";
+import { AI_CONSENT_REQUIRED_MESSAGE, type JobStatusDto } from "@/lib/ai/job-status";
 import { isUuid } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -53,6 +53,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     startedAt: job.started_at,
     finishedAt: job.finished_at,
     stale,
+    consentRequired: job.status === "failed" && job.error_message === AI_CONSENT_REQUIRED_MESSAGE,
   };
   return NextResponse.json(body, { headers: NO_STORE });
 }

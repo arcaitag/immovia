@@ -12,6 +12,7 @@ import type { Json } from "@/types/database";
  * 1. Erinnerungen an bestätigte Besichtigungen in den nächsten 24 Stunden
  * 2. Tägliche/wöchentliche Zusammenfassungen für Suchabos
  * 3. Aufräumen alter, gelesener Benachrichtigungen (älter als 180 Tage)
+ * 4. Aufräumen des E-Mail-Ausgangs, verwaister Dateien und endgültig gelöschter Immobilien
  * Jede Aufgabe läuft unabhängig; Fehler werden gezählt und protokolliert.
  */
 
@@ -223,6 +224,42 @@ async function cleanupNotifications(admin: AdminSupabaseClient, now: Date, count
   counters.notificationsDeleted = count ?? 0;
 }
 
+async function cleanupEmailOutbox(admin: AdminSupabaseClient, _now: Date, counters: Counters): Promise<void> {
+  const { data, error } = await admin.rpc("cleanup_email_outbox");
+  if (error) throw new Error(`E-Mail-Ausgang aufräumen: ${error.message}`);
+  counters.emailsDeleted = typeof data === "number" ? data : 0;
+}
+
+/** Dateien gelöschter Immobilien und verwaiste Uploads entfernen (siehe storage_cleanup_candidates). */
+async function cleanupStorage(admin: AdminSupabaseClient, _now: Date, counters: Counters): Promise<void> {
+  const { data, error } = await admin.rpc("storage_cleanup_candidates", { p_limit: 500 });
+  if (error) throw new Error(`Speicher prüfen: ${error.message}`);
+  const byBucket = new Map<string, string[]>();
+  for (const row of data ?? []) {
+    if (!row.bucket_id || !row.name) continue;
+    const list = byBucket.get(row.bucket_id) ?? [];
+    list.push(row.name);
+    byBucket.set(row.bucket_id, list);
+  }
+  let removed = 0;
+  for (const [bucket, names] of byBucket) {
+    for (let i = 0; i < names.length; i += 100) {
+      const chunk = names.slice(i, i + 100);
+      const { data: deleted, error: removeError } = await admin.storage.from(bucket).remove(chunk);
+      if (removeError) throw new Error(`Speicher aufräumen (${bucket}): ${removeError.message}`);
+      removed += deleted?.length ?? 0;
+    }
+  }
+  counters.storageObjectsDeleted = removed;
+}
+
+/** Gelöschte Immobilien 30 Tage nach dem Löschen endgültig entfernen. */
+async function purgeDeletedProperties(admin: AdminSupabaseClient, _now: Date, counters: Counters): Promise<void> {
+  const { data, error } = await admin.rpc("purge_deleted_properties");
+  if (error) throw new Error(`Gelöschte Immobilien entfernen: ${error.message}`);
+  counters.propertiesPurged = typeof data === "number" ? data : 0;
+}
+
 export async function runScheduledTasks(): Promise<Record<string, number>> {
   const counters: Counters = { reminders: 0, reminderEmails: 0, digests: 0, digestListings: 0, notificationsDeleted: 0, errors: 0 };
   if (!isServiceRoleConfigured()) return counters;
@@ -233,6 +270,9 @@ export async function runScheduledTasks(): Promise<Record<string, number>> {
     ["Termin-Erinnerungen", sendViewingReminders],
     ["Suchabo-Zusammenfassungen", sendSearchDigests],
     ["Benachrichtigungen aufräumen", cleanupNotifications],
+    ["E-Mail-Ausgang aufräumen", cleanupEmailOutbox],
+    ["Speicher aufräumen", cleanupStorage],
+    ["Gelöschte Immobilien entfernen", purgeDeletedProperties],
   ];
   for (const [label, task] of tasks) {
     try {

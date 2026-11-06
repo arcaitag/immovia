@@ -3461,6 +3461,10 @@ export type Database = {
         Args: { p_type: Database["public"]["Enums"]["property_type"] };
         Returns: string;
       };
+      purge_deleted_properties: {
+        Args: never;
+        Returns: number;
+      };
       queue_email: {
         Args: { p_user: string; p_template: string; p_payload: Json; p_setting?: string; p_dedupe_key?: string; p_delay?: string };
         Returns: undefined;
@@ -3532,6 +3536,14 @@ export type Database = {
       slugify: {
         Args: { p_value: string };
         Returns: string;
+      };
+      storage_cleanup_candidates: {
+        Args: { p_limit?: number };
+        Returns: {
+          bucket_id: string | null;
+          name: string | null;
+          reason: string | null;
+        }[];
       };
       submit_contact_request: {
         Args: { p_name: string; p_email: string; p_subject: string; p_message: string };

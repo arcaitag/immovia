@@ -1,22 +1,21 @@
-import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 
-export type AiUnavailableReason = "not_configured" | "service_role_missing" | "feature_disabled" | "no_consent" | "quota_exceeded";
+export type AiUnavailableReason = "not_configured" | "service_role_missing" | "feature_disabled" | "quota_exceeded";
 
 export interface AvailabilityView {
   available: boolean;
   reason?: AiUnavailableReason;
   message?: string;
   quota?: { used: number; limit: number; remaining: number; period: "day" | "month"; resetsAt: string; unit: string };
+  /** Einwilligung zur KI-Verarbeitung fehlt: vor dem Start den Einwilligungsdialog zeigen. */
+  consentRequired?: boolean;
 }
 
 const TITLES: Record<AiUnavailableReason, string> = {
   not_configured: "KI nicht konfiguriert",
   service_role_missing: "Hintergrundaufträge nicht eingerichtet",
   feature_disabled: "Funktion vorübergehend deaktiviert",
-  no_consent: "Keine Einwilligung zur KI-Verarbeitung",
   quota_exceeded: "Kontingent ausgeschöpft",
 };
 
@@ -24,18 +23,7 @@ const TITLES: Record<AiUnavailableReason, string> = {
 export function AiUnavailableNotice({ availability, className }: { availability: AvailabilityView; className?: string }) {
   if (availability.available || !availability.reason) return null;
   return (
-    <Alert
-      tone={availability.reason === "quota_exceeded" || availability.reason === "no_consent" ? "warning" : "neutral"}
-      title={TITLES[availability.reason]}
-      className={className}
-      action={
-        availability.reason === "no_consent" ? (
-          <Button asChild variant="outline" size="sm">
-            <Link href="/dashboard/einstellungen">Einstellungen</Link>
-          </Button>
-        ) : undefined
-      }
-    >
+    <Alert tone={availability.reason === "quota_exceeded" ? "warning" : "neutral"} title={TITLES[availability.reason]} className={className}>
       {availability.message}
     </Alert>
   );

@@ -8,6 +8,7 @@ import { buildPropertyFacts } from "@/lib/ai/property-facts";
 import { computeMissingItems, type AssistantPropertyContext } from "@/lib/ai/prompts/assistant";
 import { VALUATION_STATUS_LABELS } from "@/lib/valuation/labels";
 import { canManageProperty, managedPropertiesFilter } from "@/services/ai/access";
+import { getListingContact } from "@/services/listings";
 import { loadPropertyContext } from "@/services/ai/property-data";
 
 /**
@@ -46,7 +47,7 @@ export async function loadAssistantContext(
   const [listingRes, imagesRes, documentsRes, valuationRes, dossiersRes] = await Promise.all([
     supabase
       .from("listings")
-      .select("status, title, description, location_description, price, price_on_request, additional_costs, texts_confirmed_at, contact_name, contact_email, contact_phone, published_at")
+      .select("id, status, title, description, location_description, price, price_on_request, additional_costs, texts_confirmed_at, contact_name, published_at")
       .eq("property_id", propertyId)
       .is("deleted_at", null)
       .neq("status", "archived")
@@ -60,7 +61,16 @@ export async function loadAssistantContext(
   const listing = listingRes.data;
   const images = imagesRes.data ?? [];
   const floorPlanCount = images.filter((i) => i.is_floor_plan).length;
-  const hasContact = Boolean(listing && (listing.contact_name || listing.contact_email || listing.contact_phone));
+  // Kontaktangaben selbst gehen nie an die KI – nur, ob welche hinterlegt sind (für «Was fehlt noch?»)
+  let hasContact = Boolean(listing?.contact_name?.trim());
+  if (listing && !hasContact) {
+    try {
+      const contact = await getListingContact(supabase, listing.id);
+      hasContact = Boolean(contact.contact_email || contact.contact_phone);
+    } catch (error) {
+      console.warn("[assistant] Kontaktangaben nicht lesbar", error instanceof Error ? error.message : error);
+    }
+  }
   const price = listing
     ? priceDisplay({
         offerType: p.offer_type,

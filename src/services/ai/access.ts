@@ -7,6 +7,7 @@ import { createAdminClient, isServiceRoleConfigured } from "@/lib/supabase/admin
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { enqueueJob, runJobNow, type EnqueueInput } from "@/lib/jobs/queue";
 import type { JobRow } from "@/lib/jobs/types";
+import { aiConsentRequiredError, readAiConsent } from "@/lib/ai/consent";
 import { AI_NOT_CONFIGURED_MESSAGE, isAiConfigured } from "@/lib/ai/provider";
 import { buildQuotaStatus, type FeatureFlags, type QuotaFeature, type QuotaStatus } from "@/lib/ai/settings";
 import { countQuotaUsage } from "@/lib/ai/usage";
@@ -42,18 +43,23 @@ export function managedPropertiesFilter(user: SessionUser): string {
   return orgIds.length ? `owner_id.eq.${user.id},organization_id.in.(${orgIds.join(",")})` : `owner_id.eq.${user.id}`;
 }
 
-export type UnavailableReason = "not_configured" | "service_role_missing" | "feature_disabled" | "no_consent" | "quota_exceeded";
+export type UnavailableReason = "not_configured" | "service_role_missing" | "feature_disabled" | "quota_exceeded";
 
 export interface FeatureAvailability {
   available: boolean;
   reason?: UnavailableReason;
   message?: string;
   quota?: QuotaStatus;
+  /**
+   * Die Einwilligung zur KI-Verarbeitung fehlt. Die Funktion ist nicht gesperrt: Die Oberfläche
+   * fragt vor dem Start im Einwilligungsdialog nach, der Server prüft vor jedem KI-Aufruf erneut.
+   */
+  consentRequired?: boolean;
 }
 
+/** Einwilligung zur KI-Verarbeitung (Standard: aus; fehlende Zeile = keine Einwilligung). */
 export async function hasAiConsent(supabase: ServerSupabaseClient, userId: string): Promise<boolean> {
-  const { data } = await supabase.from("user_preferences").select("ai_processing_consent").eq("user_id", userId).maybeSingle();
-  return data?.ai_processing_consent ?? true;
+  return readAiConsent(supabase, userId);
 }
 
 export interface AvailabilityOptions {
@@ -69,7 +75,7 @@ export interface AvailabilityOptions {
 }
 
 export async function getFeatureAvailability(options: AvailabilityOptions): Promise<FeatureAvailability> {
-  const settings = options.settings ?? (await loadAiSettings(options.supabase));
+  const settings = options.settings ?? (await loadAiSettings());
   if (!settings.features[options.flag]) {
     return { available: false, reason: "feature_disabled", message: "Diese Funktion ist auf Immovia vorübergehend deaktiviert." };
   }
@@ -83,13 +89,7 @@ export async function getFeatureAvailability(options: AvailabilityOptions): Prom
   if (options.requiresAi && !isAiConfigured()) {
     return { available: false, reason: "not_configured", message: AI_NOT_CONFIGURED_MESSAGE };
   }
-  if (options.requiresConsent && !(await hasAiConsent(options.supabase, options.userId))) {
-    return {
-      available: false,
-      reason: "no_consent",
-      message: "Sie haben der Verarbeitung Ihrer Daten durch KI-Dienste nicht zugestimmt. Sie können dies in den Einstellungen ändern.",
-    };
-  }
+  const consentRequired = options.requiresConsent && !(await hasAiConsent(options.supabase, options.userId));
   if (options.quotaFeature) {
     const used = await countQuotaUsage(createAdminClient(), options.userId, options.quotaFeature);
     const quota = buildQuotaStatus(options.quotaFeature, settings.quotas, used);
@@ -104,16 +104,17 @@ export async function getFeatureAvailability(options: AvailabilityOptions): Prom
         quota,
       };
     }
-    return { available: true, quota };
+    return { available: true, quota, consentRequired };
   }
-  return { available: true };
+  return { available: true, consentRequired };
 }
 
+/** Wirft bei gesperrter Funktion einen passenden AppError, bei fehlender Einwilligung aiConsentRequiredError(). */
 export function assertAvailable(availability: FeatureAvailability): void {
-  if (availability.available) return;
-  const code =
-    availability.reason === "quota_exceeded" ? "quota_exceeded" : availability.reason === "no_consent" ? "forbidden" : "service_unavailable";
-  throw new AppError(code, availability.message);
+  if (!availability.available) {
+    throw new AppError(availability.reason === "quota_exceeded" ? "quota_exceeded" : "service_unavailable", availability.message);
+  }
+  if (availability.consentRequired) throw aiConsentRequiredError();
 }
 
 /** Kurzfristiges Rate Limit über check_rate_limit (PostgreSQL, Service Role). */

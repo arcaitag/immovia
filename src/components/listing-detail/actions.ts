@@ -7,14 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertUser } from "@/lib/auth/session";
 import { flushEmailOutbox } from "@/lib/email/outbox";
 import { AppError, fromDbError, runAction, validationError, type ActionResult } from "@/lib/errors";
-import {
-  bookViewingSchema,
-  inquirySchema,
-  reportSchema,
-  type BookViewingInput,
-  type InquiryInput,
-  type ReportInput,
-} from "@/components/listing-detail/schemas";
+import { inquirySchema, reportSchema, type InquiryInput, type ReportInput } from "@/components/listing-detail/schemas";
 
 function sendQueuedEmails() {
   after(async () => {
@@ -48,25 +41,6 @@ export async function createInquiryAction(input: InquiryInput): Promise<ActionRe
     revalidatePath("/dashboard/nachrichten");
     return { conversationId: data };
   }, "Ihre Anfrage wurde gesendet.");
-}
-
-/** Bucht ein freies Besichtigungs-Zeitfenster (Datenbankfunktion book_viewing, sperrt gegen Doppelbuchung). */
-export async function bookViewingAction(input: BookViewingInput): Promise<ActionResult<{ appointmentId: string }>> {
-  return runAction(async () => {
-    await assertUser();
-    const parsed = bookViewingSchema.safeParse(input);
-    if (!parsed.success) throw validationError(z.flattenError(parsed.error).fieldErrors);
-    const supabase = await createClient();
-    const { data, error } = await supabase.rpc("book_viewing", {
-      p_slot_id: parsed.data.slotId,
-      p_message: parsed.data.message || undefined,
-    });
-    if (error) throw fromDbError(error);
-    if (!data) throw new AppError("unknown");
-    sendQueuedEmails();
-    revalidatePath("/dashboard/besichtigungen");
-    return { appointmentId: data };
-  }, "Ihre Besichtigungsanfrage wurde gesendet.");
 }
 
 /** Meldet ein Inserat an die Moderation (user_reports). */

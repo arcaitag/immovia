@@ -242,7 +242,7 @@ export function AdvertiserCard({
 }: {
   advertiser: ListingAdvertiser | null;
   organization: { name: string; slug: string; logoUrl: string | null } | null;
-  verifications: { ownership: boolean; documentationComplete: boolean };
+  verifications: { ownership: boolean; documentationComplete: boolean; organization: boolean };
 }) {
   const memberSince = advertiser ? formatDate(advertiser.memberSince, { day: undefined, month: "long", year: "numeric" }) : null;
   const badges = [
@@ -250,6 +250,7 @@ export function AdvertiserCard({
     advertiser?.identityVerified ? { icon: BadgeCheck, label: "Identität verifiziert" } : null,
     verifications.ownership ? { icon: KeyRound, label: "Eigentümerberechtigung geprüft" } : null,
     verifications.documentationComplete ? { icon: ShieldCheck, label: "Objektdokumentation vollständig" } : null,
+    organization && verifications.organization ? { icon: Building2, label: "Firma verifiziert" } : null,
   ].filter((b): b is { icon: typeof MailCheck; label: string } => b !== null);
 
   return (

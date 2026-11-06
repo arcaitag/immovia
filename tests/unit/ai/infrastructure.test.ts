@@ -6,8 +6,12 @@ import { backoffDelayMs, isRetryableError, withRetry } from "@/lib/ai/retry";
 import { buildQuotaStatus, parseAiQuotas, parseFeatureFlags, quotaPeriod } from "@/lib/ai/settings";
 import { isJobFinished } from "@/lib/ai/job-status";
 
-function apiError<T>(Ctor: new (status: number, error: object, message: string, headers: Headers) => T, status: number, headers = new Headers()) {
-  return new Ctor(status, { type: "error" }, "Fehler", headers);
+// Die SDK-Konstruktoren erwarten Literal-Statuscodes (z. B. 429); für Tests reicht eine lose Signatur.
+type ApiErrorConstructor<T> = new (...args: never[]) => T;
+
+function apiError<T>(Ctor: ApiErrorConstructor<T>, status: number, headers = new Headers()): T {
+  const Factory = Ctor as unknown as new (status: number, error: object, message: string, headers: Headers) => T;
+  return new Factory(status, { type: "error" }, "Fehler", headers);
 }
 
 describe("Konfiguration", () => {

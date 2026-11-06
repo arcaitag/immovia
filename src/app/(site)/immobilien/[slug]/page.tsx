@@ -111,7 +111,8 @@ export default async function ListingPage({ params }: Props) {
     priceValue: price.value,
     priceLabel: price.label,
     priceDetail,
-    phone: l.show_contact_phone ? l.contact_phone : null,
+    // Aus get_listing_public_contact: nur gesetzt, wenn show_contact_phone aktiv ist
+    phone: data.contactPhone,
     isReserved: l.status === "reserved",
   };
 

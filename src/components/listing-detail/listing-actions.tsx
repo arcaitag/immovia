@@ -4,13 +4,16 @@ import * as React from "react";
 import Link from "next/link";
 import { CalendarCheck, Flag, Link2, MessageSquare, Phone, Share2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/sonner";
 import { FavoriteButton } from "@/components/property/favorite-button";
 import { useAuthUser } from "@/hooks/use-auth-user";
 import { formatPhone } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { InquiryDialog, type InquiryTarget } from "@/components/listing-detail/inquiry-dialog";
-import { ViewingDialog } from "@/components/listing-detail/viewing-dialog";
+import { LoginPrompt, OwnListingNotice } from "@/components/listing-detail/login-prompt";
+import { ViewingBookingDialog } from "@/components/viewings/viewing-booking-dialog";
 import { ReportDialog } from "@/components/listing-detail/report-dialog";
 import { clearLocationHash, useLocationHash } from "@/components/search/use-location-hash";
 
@@ -23,11 +26,11 @@ export interface ListingActionsInfo extends InquiryTarget {
   isReserved: boolean;
 }
 
-type ActiveDialog = { kind: "anfrage"; wantsViewing?: boolean } | { kind: "besichtigung" } | { kind: "melden" };
+type ActiveDialog = { kind: "anfrage" } | { kind: "besichtigung" } | { kind: "melden" };
 
 interface ListingActionsContextValue {
   info: ListingActionsInfo;
-  openInquiry: (options?: { wantsViewing?: boolean }) => void;
+  openInquiry: () => void;
   openViewing: () => void;
   openReport: () => void;
 }
@@ -66,7 +69,7 @@ export function ListingActionsProvider({ info, children }: { info: ListingAction
   const value = React.useMemo<ListingActionsContextValue>(
     () => ({
       info,
-      openInquiry: (options) => setDialog({ kind: "anfrage", wantsViewing: options?.wantsViewing }),
+      openInquiry: () => setDialog({ kind: "anfrage" }),
       openViewing: () => setDialog({ kind: "besichtigung" }),
       openReport: () => setDialog({ kind: "melden" }),
     }),
@@ -76,20 +79,51 @@ export function ListingActionsProvider({ info, children }: { info: ListingAction
   return (
     <ListingActionsContext.Provider value={value}>
       {children}
-      <InquiryDialog
-        open={active?.kind === "anfrage"}
-        wantsViewing={active?.kind === "anfrage" ? active.wantsViewing : undefined}
-        onOpenChange={(open) => (open ? undefined : close())}
-        target={info}
-      />
-      <ViewingDialog
-        open={active?.kind === "besichtigung"}
-        onOpenChange={(open) => (open ? undefined : close())}
-        target={info}
-        onRequestByMessage={() => setDialog({ kind: "anfrage", wantsViewing: true })}
-      />
+      <InquiryDialog open={active?.kind === "anfrage"} onOpenChange={(open) => (open ? undefined : close())} target={info} />
+      <ViewingEntry open={active?.kind === "besichtigung"} onOpenChange={(open) => (open ? undefined : close())} target={info} />
       <ReportDialog open={active?.kind === "melden"} onOpenChange={(open) => (open ? undefined : close())} target={info} />
     </ListingActionsContext.Provider>
+  );
+}
+
+/**
+ * Besichtigung anfragen: nutzt den gemeinsamen Buchungsdialog des Besichtigungsbereichs
+ * (get_viewing_slots, bookViewingAction). Ohne Konto erscheint vorher die Anmeldung mit Rücksprung,
+ * beim eigenen Inserat ein Hinweis aufs Dashboard.
+ */
+function ViewingEntry({
+  open,
+  onOpenChange,
+  target,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  target: ListingActionsInfo;
+}) {
+  const { data: user, isLoading } = useAuthUser();
+  if (user && user.id !== target.ownerId) {
+    return <ViewingBookingDialog listingId={target.listingId} listingTitle={target.title} open={open} onOpenChange={onOpenChange} />;
+  }
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Besichtigung anfragen</DialogTitle>
+          <DialogDescription>{target.title}</DialogDescription>
+        </DialogHeader>
+        {isLoading ? (
+          <Spinner className="justify-self-center py-6" label="Konto wird geprüft" />
+        ) : user ? (
+          <OwnListingNotice />
+        ) : (
+          <LoginPrompt
+            returnTo={`/immobilien/${target.slug}`}
+            anchor="besichtigung"
+            reason="Für eine Besichtigung brauchen Sie ein Immovia-Konto, damit Termin und Bestätigung bei Ihnen ankommen."
+          />
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
