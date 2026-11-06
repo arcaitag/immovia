@@ -639,14 +639,14 @@ begin
     if exists (select 1 from public.profiles where id = new.owner_id and status <> 'active') then
       raise exception 'account_inactive';
     end if;
-    if coalesce(trim(new.title), '') = '' then v_missing := v_missing || 'title'; end if;
-    if coalesce(trim(new.description), '') = '' then v_missing := v_missing || 'description'; end if;
-    if new.price is null and not new.price_on_request then v_missing := v_missing || 'price'; end if;
-    if new.postal_code is null or new.municipality is null then v_missing := v_missing || 'location'; end if;
-    if new.texts_confirmed_at is null then v_missing := v_missing || 'texts_confirmed'; end if;
+    if coalesce(trim(new.title), '') = '' then v_missing := array_append(v_missing, 'title'); end if;
+    if coalesce(trim(new.description), '') = '' then v_missing := array_append(v_missing, 'description'); end if;
+    if new.price is null and not new.price_on_request then v_missing := array_append(v_missing, 'price'); end if;
+    if new.postal_code is null or new.municipality is null then v_missing := array_append(v_missing, 'location'); end if;
+    if new.texts_confirmed_at is null then v_missing := array_append(v_missing, 'texts_confirmed'); end if;
     if (select count(*) from public.property_images i
          where i.property_id = new.property_id and i.status = 'ready') < v_min_images then
-      v_missing := v_missing || 'images';
+      v_missing := array_append(v_missing, 'images');
     end if;
     if cardinality(v_missing) > 0 then
       raise exception 'listing_incomplete' using detail = array_to_string(v_missing, ',');
@@ -666,8 +666,12 @@ begin
                when new.rooms = trunc(new.rooms) then trunc(new.rooms)::int::text || ' zimmer'
                else trim(to_char(new.rooms, 'FM990.0')) || ' zimmer' end,
           new.municipality)), 80)
-        || '-' || left(replace(new.id::text, '-', ''), 6);
+        || '-' || right(replace(new.id::text, '-', ''), 8);
       new.slug := trim(both '-' from new.slug);
+      -- Sehr unwahrscheinliche Kollision: weitere Zeichen der ID anhängen
+      if exists (select 1 from public.listings where slug = new.slug and id <> new.id) then
+        new.slug := new.slug || '-' || left(replace(new.id::text, '-', ''), 8);
+      end if;
     end if;
   end if;
 
@@ -718,7 +722,7 @@ begin
     and (tg_op = 'INSERT' or old.status is distinct from 'published');
 
   if v_became_public then
-    if new.first_published_at = new.published_at then
+    if new.first_published_at = new.published_at and not new.is_demo then
       perform public.notify_user(new.owner_id, 'listing_published',
         'Ihr Inserat ist online', coalesce(new.title, 'Inserat'),
         '/immobilien/' || new.slug, jsonb_build_object('listing_id', new.id));

@@ -334,9 +334,15 @@ create policy favorites_delete on public.favorites for delete to authenticated
 
 create policy saved_searches_select on public.saved_searches for select to authenticated
   using (user_id = (select auth.uid()));
+create or replace function public.my_saved_search_count()
+returns integer
+language sql stable security definer set search_path = ''
+as $$
+  select count(*)::int from public.saved_searches where user_id = (select auth.uid());
+$$;
+
 create policy saved_searches_insert on public.saved_searches for insert to authenticated
-  with check (user_id = (select auth.uid())
-              and (select count(*) from public.saved_searches s where s.user_id = (select auth.uid())) < 25);
+  with check (user_id = (select auth.uid()) and public.my_saved_search_count() < 25);
 create policy saved_searches_update on public.saved_searches for update to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 create policy saved_searches_delete on public.saved_searches for delete to authenticated

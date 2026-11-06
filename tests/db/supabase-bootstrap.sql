@@ -36,9 +36,32 @@ create table auth.users (
   last_sign_in_at timestamptz,
   raw_app_meta_data jsonb default '{}'::jsonb,
   raw_user_meta_data jsonb default '{}'::jsonb,
+  confirmation_token varchar(255),
+  recovery_token varchar(255),
+  email_change varchar(255),
+  email_change_token_new varchar(255),
+  email_change_token_current varchar(255),
+  phone_change varchar(255),
+  phone_change_token varchar(255),
+  reauthentication_token varchar(255),
+  is_sso_user boolean default false,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+create table auth.identities (
+  id uuid primary key default gen_random_uuid(),
+  provider_id text not null,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  identity_data jsonb not null,
+  provider text not null,
+  last_sign_in_at timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (provider_id, provider)
+);
+
+create extension if not exists pgcrypto with schema extensions;
 
 create or replace function auth.uid()
 returns uuid
@@ -115,6 +138,5 @@ grant execute on function storage.foldername(text) to anon, authenticated, servi
 
 create publication supabase_realtime;
 
-alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
-alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+-- Hinweis: Bewusst KEINE automatischen Default-Privileges (wie neuere Supabase-Projekte).
+-- Die Migrationen müssen alle benötigten Rechte selbst vergeben.
