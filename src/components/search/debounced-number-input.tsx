@@ -3,17 +3,18 @@
 import * as React from "react";
 import { InputGroup } from "@/components/ui/input";
 
-const grouped = new Intl.NumberFormat("de-CH", { maximumFractionDigits: 0 });
+const grouped = new Intl.NumberFormat("de-CH", { maximumFractionDigits: 1 });
 
 function toText(value: number | undefined, grouping: boolean): string {
   if (value === undefined) return "";
   return grouping ? grouped.format(value) : String(value);
 }
 
+/** Akzeptiert Schweizer Schreibweisen wie «800’000» oder «80.5». */
 function toNumber(text: string): number | undefined {
-  const digits = text.replace(/[^\d]/g, "");
-  if (!digits) return undefined;
-  const n = Number(digits);
+  const clean = text.replace(/['’\s]/g, "");
+  if (!/^\d+(\.\d+)?$/.test(clean)) return undefined;
+  const n = Number(clean);
   return Number.isFinite(n) ? n : undefined;
 }
 
@@ -86,7 +87,7 @@ export function DebouncedNumberInput({
         commitNow();
         setText(toText(toNumber(text), grouping));
       }}
-      onChange={(event) => setText(event.target.value.replace(/[^\d'’\s]/g, "").slice(0, maxDigits + 4))}
+      onChange={(event) => setText(event.target.value.replace(/[^\d'’\s.]/g, "").slice(0, maxDigits + 5))}
       onKeyDown={(event) => {
         if (event.key === "Enter") {
           event.preventDefault();

@@ -139,6 +139,8 @@ function OwnerHint() {
   );
 }
 
+const CONTACT_CARD_ID = "kontakt-karte";
+
 /** Seitliche Kontaktkarte (Desktop sticky, auf Mobilgeräten im Inhalt). */
 export function ContactCard({ className }: { className?: string }) {
   const { info, openInquiry, openViewing, openReport } = useListingActions();
@@ -146,7 +148,7 @@ export function ContactCard({ className }: { className?: string }) {
   const isOwner = Boolean(user && user.id === info.ownerId);
 
   return (
-    <section aria-label="Kontakt" className={cn("rounded-2xl border border-border bg-card p-6 shadow-card", className)}>
+    <section id={CONTACT_CARD_ID} aria-label="Kontakt" className={cn("rounded-2xl border border-border bg-card p-6 shadow-card", className)}>
       <p className="text-sm text-muted-foreground">{info.priceLabel}</p>
       <p className="font-display text-[1.75rem] font-extrabold leading-tight tracking-tight text-brand tabular">{info.priceValue}</p>
       {info.priceDetail ? <p className="mt-1 text-sm text-muted-foreground">{info.priceDetail}</p> : null}
@@ -199,13 +201,35 @@ export function ContactCard({ className }: { className?: string }) {
   );
 }
 
-/** Fixierte Kontaktleiste am unteren Bildschirmrand (nur Mobilgeräte). */
+/**
+ * Fixierte Kontaktleiste am unteren Bildschirmrand (nur Mobilgeräte).
+ * Sobald die Kontaktkarte im Inhalt sichtbar ist (oder darüber gescrollt wurde), wird die Leiste ausgeblendet.
+ */
 export function MobileContactBar() {
   const { info, openInquiry, openViewing } = useListingActions();
   const { data: user } = useAuthUser();
+  const [cardReached, setCardReached] = React.useState(false);
+
+  React.useEffect(() => {
+    const card = document.getElementById(CONTACT_CARD_ID);
+    if (!card || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry) setCardReached(entry.isIntersecting || entry.boundingClientRect.top < 0);
+    });
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, []);
+
   if (user && user.id === info.ownerId) return null;
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur lg:hidden">
+    <div
+      aria-hidden={cardReached || undefined}
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur transition-transform duration-200 lg:hidden",
+        cardReached && "pointer-events-none translate-y-full",
+      )}
+      inert={cardReached || undefined}
+    >
       <div className="mx-auto flex max-w-xl items-center gap-2">
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-lg font-extrabold leading-tight text-brand tabular">{info.priceValue}</p>

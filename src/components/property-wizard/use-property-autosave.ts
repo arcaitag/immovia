@@ -88,7 +88,17 @@ export function usePropertyAutosave({
     const patch: Partial<Record<PropertyFormField, unknown>> = {};
     for (const key of toSave) patch[key] = values[key];
 
-    const result = await savePropertyFieldsAction(propertyId, patch);
+    let result: Awaited<ReturnType<typeof savePropertyFieldsAction>>;
+    try {
+      result = await savePropertyFieldsAction(propertyId, patch);
+    } catch {
+      setState((s) => ({
+        ...s,
+        status: "error",
+        message: "Keine Verbindung zum Server. Ihre Eingaben sind noch nicht gespeichert.",
+      }));
+      return false;
+    }
     if (result.ok) {
       const next = { ...savedRef.current };
       for (const key of toSave) (next as Record<string, unknown>)[key] = values[key];
@@ -116,7 +126,8 @@ export function usePropertyAutosave({
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    if (runningRef.current) await runningRef.current;
+    // Nie zwei Speichervorgänge gleichzeitig: auf einen laufenden warten (auch wenn mehrere warten)
+    while (runningRef.current) await runningRef.current;
     const run = runSave();
     runningRef.current = run;
     try {

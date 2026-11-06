@@ -5,7 +5,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import { AppError, fromDbError } from "@/lib/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
-import type { Json, TablesUpdate } from "@/types/database";
+import type { Json, TablesInsert, TablesUpdate } from "@/types/database";
 import { normalizeForCompare } from "@/lib/ai/swiss";
 import {
   DESCRIPTION_SECTIONS,
@@ -81,7 +81,10 @@ async function ensureListing(supabase: ServerSupabaseClient, propertyId: string)
     supabase.from("listings").select(select).eq("property_id", propertyId).is("deleted_at", null).neq("status", "archived").maybeSingle();
   const { data: existing } = await find();
   if (existing) return existing;
-  const { data: created, error } = await supabase.from("listings").insert({ property_id: propertyId }).select(select).single();
+  // owner_id und offer_type setzt der Trigger listings_before_write aus der Immobilie; diese Spalten
+  // dürfen Benutzer nicht senden (Spaltenrechte). Daher nur property_id (Typ verlangt sie trotzdem).
+  const draft = { property_id: propertyId } as TablesInsert<"listings">;
+  const { data: created, error } = await supabase.from("listings").insert(draft).select(select).single();
   if (created) return created;
   if (error?.code === "23505") {
     const { data: again } = await find();
