@@ -4,8 +4,10 @@
  */
 export const MARKETING_IMAGES = {
   hero: {
-    src: "https://images.unsplash.com/photo-1584098731526-e3924fad98db",
-    alt: "Chalet an einem türkisfarbenen Bergsee vor verschneiten Gipfeln",
+    // Breiter Ausschnitt aus dem 3840×2880-Original (rect = x,y,Breite,Höhe): Chalet, See und Wiese.
+    // Halbiert die Dateigrösse; die Bildposition auf der Startseite ist auf diesen Ausschnitt abgestimmt.
+    src: "https://images.unsplash.com/photo-1584098731526-e3924fad98db?rect=0,860,3840,1550",
+    alt: "Chalet mit Wiese an einem türkisfarbenen Bergsee",
     credit: "Unsplash",
   },
   livingRoom: {

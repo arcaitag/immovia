@@ -64,7 +64,9 @@ export default async function HomePage() {
             fill
             priority
             sizes="100vw"
-            className="object-cover object-[62%_40%]"
+            quality={60}
+            // Das Haus steht rechts über der Suchbox; breitere Bildschirme zeigen das Bild grösser
+            className="object-cover object-[62%_70%] 2xl:object-[62%_55%] min-[2200px]:object-[62%_45%]"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-white/90 via-white/65 to-white/15 md:bg-gradient-to-r md:from-white md:from-5% md:via-white/80 md:via-35% md:to-white/0 md:to-70%" />
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/45 to-transparent" />

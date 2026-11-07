@@ -256,7 +256,7 @@ export const ARTICLES: Article[] = [
     description: "Licht, Perspektive, Auswahl: So entstehen ehrliche, ansprechende Bilder Ihrer Immobilie – ohne Profi-Ausrüstung.",
     category: "Verkaufen",
     updatedAt: "2026-11-06",
-    image: MARKETING_IMAGES.hero,
+    image: MARKETING_IMAGES.livingRoom,
     related: ["besichtigung-vorbereiten", "mietinserat-erstellen"],
     cta: { label: "Bilder hochladen und optimieren", href: "/dashboard/bilderstudio" },
     blocks: [

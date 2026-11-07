@@ -19,6 +19,8 @@ const nextConfig: NextConfig = {
     loader: "custom",
     loaderFile: "./src/lib/images/loader.ts",
     qualities: [60, 75, 85],
+    // Grösste Stufe 2560 statt 3840: Vollbreite-Bilder (Hero) auf 1440er-Retina-Displays rund halb so gross
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2560],
   },
   serverExternalPackages: ["sharp", "@react-pdf/renderer"],
   // Schriften für PDF-Dossiers und Bewertungsberichte (werden zur Laufzeit von der Platte gelesen)
