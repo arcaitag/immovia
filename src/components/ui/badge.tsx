@@ -9,7 +9,7 @@ export const badgeVariants = cva(
       tone: {
         neutral: "border-border bg-muted text-muted-foreground",
         green: "border-transparent bg-mint-100 text-forest",
-        solid: "border-transparent bg-brand text-white",
+        solid: "border-transparent bg-primary text-white",
         blue: "border-transparent bg-info-bg text-info",
         amber: "border-transparent bg-warning-bg text-warning",
         red: "border-transparent bg-destructive-bg text-destructive",

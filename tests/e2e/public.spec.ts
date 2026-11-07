@@ -1,20 +1,64 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Öffentliche Seiten", () => {
-  test("Startseite zeigt Markenversprechen, Suche und Angebote @mobile", async ({ page }) => {
+  test("Startseite zeigt Suche zuerst, Angebote direkt darunter @mobile", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("Immobilie bewerten, professionell verkaufen.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Finde dein neues Zuhause.");
+    await expect(page.getByText("Immobilien kaufen, mieten oder kostenlos verkaufen.")).toBeVisible();
     await expect(page.getByRole("search", { name: "Immobilien suchen" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Kaufen" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("button", { name: "Immobilien suchen", exact: true })).toBeInViewport();
     await expect(page.getByRole("heading", { name: "Aktuelle Immobilienangebote" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Jetzt Immobilie verkaufen/ })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Alle Angebote" })).toHaveAttribute("href", "/immobilien");
+    await expect(page.getByRole("link", { name: "Immobilie verkaufen" }).first()).toHaveAttribute("href", "/verkaufen");
+    await expect(page.getByRole("link", { name: "Kostenlos bewerten" }).first()).toHaveAttribute("href", "/bewerten");
+    // Reihenfolge der Bereiche gemäss Vorgabe
+    const headings = await page.getByRole("heading", { level: 2 }).allTextContents();
+    expect(headings.slice(0, 7)).toEqual([
+      "Aktuelle Immobilienangebote",
+      "Immobilien kostenlos verkaufen",
+      "So funktioniert Immovia",
+      "Kostenlose Immobilienbewertung",
+      "Verkaufsdossier und Bildoptimierung",
+      "Kommunikation und Interessentenverwaltung",
+      "Angebote für Immobilienfirmen",
+    ]);
   });
 
   test("Suche aus dem Hero führt zur Trefferliste mit URL-Parametern", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("tab", { name: "Mieten" }).click();
+    await page.getByLabel("Immobilientyp").selectOption({ label: "Wohnung" });
     await page.getByLabel("Zimmer ab").selectOption("3");
-    await page.getByRole("button", { name: "Suchen" }).click();
-    await expect(page).toHaveURL(/\/mieten\?.*zimmer_von=3/);
+    await page.getByRole("button", { name: "Immobilien suchen", exact: true }).click();
+    await expect(page).toHaveURL(/\/mieten\?.*typ=apartment.*zimmer_von=3/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  });
+
+  test("Preisoptionen passen sich Kaufen und Mieten an", async ({ page }) => {
+    await page.goto("/");
+    const price = page.getByLabel("Kaufpreis bis");
+    // Tausendertrennzeichen je nach ICU-Version ' oder ’
+    await expect(price.locator("option", { hasText: /^bis CHF 1.000.000$/ })).toHaveCount(1);
+    await price.selectOption("1000000");
+    await page.getByRole("tab", { name: "Mieten" }).click();
+    const rent = page.getByLabel("Miete pro Monat bis");
+    // Wechsel setzt den Preis zurück und zeigt Monatsmieten
+    await expect(rent).toHaveValue("");
+    await expect(rent.locator("option", { hasText: /^bis CHF 2.000 \/ Monat$/ })).toHaveCount(1);
+    await expect(rent.locator("option", { hasText: /1.000.000/ })).toHaveCount(0);
+    // Tastatur: Pfeiltaste wechselt zurück zu Kaufen
+    await page.getByRole("tab", { name: "Mieten" }).press("ArrowLeft");
+    await expect(page.getByRole("tab", { name: "Kaufen" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "Kaufen" })).toBeFocused();
+  });
+
+  test("Weitere Filter öffnet die Suche mit dem Filter-Panel", async ({ page }) => {
+    await page.goto("/");
+    await page.getByLabel("Zimmer ab").selectOption("4");
+    await page.getByRole("button", { name: "Weitere Filter" }).click();
+    await expect(page).toHaveURL(/\/kaufen\?zimmer_von=4/);
+    await expect(page.getByRole("dialog", { name: /Filter/ })).toBeVisible();
   });
 
   test("Rechtstexte sind als Entwurf gekennzeichnet", async ({ page }) => {

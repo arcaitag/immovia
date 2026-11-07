@@ -4,9 +4,19 @@
  */
 export const MARKETING_IMAGES = {
   hero: {
+    src: "https://images.unsplash.com/photo-1584098731526-e3924fad98db",
+    alt: "Chalet an einem türkisfarbenen Bergsee vor verschneiten Gipfeln",
+    credit: "Unsplash",
+  },
+  livingRoom: {
     src: "https://images.unsplash.com/photo-1600494448850-6013c64ba722",
     alt: "Helles Wohnzimmer mit weissem Sofa und grünen Pflanzen",
     credit: "Collov Home Design",
+  },
+  villa: {
+    src: "https://images.unsplash.com/photo-1750160868338-c0813f5dfa31",
+    alt: "Modernes Haus mit Pool und Garten an einem See",
+    credit: "Unsplash",
   },
   auth: {
     src: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9",

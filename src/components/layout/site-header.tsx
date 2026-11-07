@@ -26,8 +26,10 @@ export const MAIN_NAV = [
   { href: "/mieten", label: "Mieten", short: "Mieten" },
   { href: "/verkaufen", label: "Immobilie verkaufen", short: "Verkaufen" },
   { href: "/bewerten", label: "Immobilie bewerten", short: "Bewerten" },
-  { href: "/ratgeber", label: "Ratgeber", short: "Ratgeber" },
 ] as const;
+
+/** Nur im mobilen Menü (Desktop: Footer) */
+const MOBILE_EXTRA_NAV = [{ href: "/ratgeber", label: "Ratgeber" }] as const;
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -59,10 +61,11 @@ export function SiteHeader() {
         scrolled ? "border-border shadow-[0_6px_24px_-18px_rgb(25_40_32/0.35)]" : "border-transparent",
       )}
     >
-      <div className="container-page flex h-[4.25rem] items-center gap-6">
+      <div className="container-page flex h-16 items-center gap-6 lg:h-[4.5rem]">
         <Logo className="shrink-0" />
+        <span className="hidden h-8 w-px bg-border lg:block" aria-hidden />
 
-        <nav aria-label="Hauptnavigation" className="hidden flex-1 items-center gap-1 lg:flex">
+        <nav aria-label="Hauptnavigation" className="hidden flex-1 items-center gap-1 lg:flex xl:gap-3">
           {MAIN_NAV.map((item) => {
             const active = isActive(pathname, item.href);
             return (
@@ -78,7 +81,7 @@ export function SiteHeader() {
                 {item.short}
                 <span
                   className={cn(
-                    "absolute inset-x-3 -bottom-[0.95rem] h-[3px] rounded-full bg-brand transition-opacity",
+                    "absolute inset-x-3 -bottom-4 h-[3px] rounded-full bg-brand transition-opacity",
                     active ? "opacity-100" : "opacity-0",
                   )}
                   aria-hidden
@@ -90,11 +93,8 @@ export function SiteHeader() {
 
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
           <HeaderAuthArea />
-          <Button asChild variant="secondary" className="hidden h-11 rounded-xl px-4 sm:inline-flex">
-            <Link href="/verkaufen/start">
-              <Plus className="size-[18px]" aria-hidden />
-              Kostenlos starten
-            </Link>
+          <Button asChild className="hidden h-11 rounded-xl px-5 font-semibold sm:inline-flex">
+            <Link href="/verkaufen/start">Kostenlos inserieren</Link>
           </Button>
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
@@ -108,7 +108,7 @@ export function SiteHeader() {
                 <SheetDescription className="sr-only">Navigation von Immovia</SheetDescription>
               </SheetHeader>
               <nav aria-label="Mobile Navigation" className="flex flex-col p-3">
-                {MAIN_NAV.map((item) => (
+                {[...MAIN_NAV, ...MOBILE_EXTRA_NAV].map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
@@ -126,7 +126,7 @@ export function SiteHeader() {
                 <Button asChild variant="default" size="lg">
                   <Link href="/verkaufen/start">
                     <Plus aria-hidden />
-                    Kostenlos starten
+                    Kostenlos inserieren
                   </Link>
                 </Button>
               </div>
@@ -148,20 +148,12 @@ function HeaderAuthArea() {
 
   if (!user) {
     return (
-      <>
-        <Button asChild variant="ghost" className="hidden px-3 md:inline-flex">
-          <Link href="/login?weiter=/dashboard/merkliste">
-            <Heart className="size-5" aria-hidden />
-            <span className="hidden xl:inline">Merkliste</span>
-          </Link>
-        </Button>
-        <Button asChild variant="ghost" className="px-3">
-          <Link href="/login">
-            <User className="size-5" aria-hidden />
-            <span className="hidden sm:inline">Anmelden</span>
-          </Link>
-        </Button>
-      </>
+      <Button asChild variant="ghost" className="px-3 font-semibold" aria-label="Anmelden">
+        <Link href="/login">
+          <User className="size-5" aria-hidden />
+          <span className="hidden sm:inline">Anmelden</span>
+        </Link>
+      </Button>
     );
   }
 

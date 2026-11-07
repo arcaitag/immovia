@@ -36,7 +36,7 @@ export const EXAMPLE_LISTINGS: ListingCardData[] = [
   {
     id: "",
     slug: null,
-    title: "Einfamilienhaus mit Garten und Bergsicht",
+    title: "Modernes Einfamilienhaus mit Garten",
     offerType: "sale",
     propertyType: "single_family_house",
     status: "published",
@@ -56,7 +56,7 @@ export const EXAMPLE_LISTINGS: ListingCardData[] = [
     hasElevator: false,
     parkingSpaces: 2,
     publishedAt: null,
-    imageUrl: "https://images.unsplash.com/photo-1584098731526-e3924fad98db",
+    imageUrl: "https://images.unsplash.com/photo-1750160868338-c0813f5dfa31",
     imageCount: 1,
     isDemo: false,
     isExample: true,

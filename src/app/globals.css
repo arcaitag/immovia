@@ -15,9 +15,9 @@
   --popover: #ffffff;
   --popover-foreground: #192820;
 
-  --brand: #5a8a30;
-  --primary: #4f7a2a;
-  --primary-hover: #446a24;
+  --brand: #4a8f26;
+  --primary: #3d7e1f;
+  --primary-hover: #346c1a;
   --primary-foreground: #ffffff;
   --forest: #274b32;
   --mint-50: #f8faf6;
@@ -45,7 +45,7 @@
 
   --border: #e4eae1;
   --input: #d9e1d5;
-  --ring: #5a8a30;
+  --ring: #4a8f26;
   --radius: 0.875rem;
 }
 

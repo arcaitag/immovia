@@ -32,6 +32,22 @@ test.describe("Mobile Ansicht @mobile", () => {
       await expectNoHorizontalScroll(page);
     });
 
+    test(`Hero-Suche: Standort und Suchbutton sofort sichtbar, Filter ausklappbar (${label}) @mobile`, async ({ page }) => {
+      await useWidth(page, width);
+      await page.goto("/");
+      await expect(page.getByRole("tab", { name: "Mieten" })).toBeInViewport();
+      await expect(page.getByLabel("Ort, PLZ oder Region")).toBeInViewport();
+      await expect(page.getByRole("button", { name: "Immobilien suchen", exact: true })).toBeInViewport();
+      // Objektart, Preis und Zimmer erst nach «Weitere Filter»
+      const toggle = page.getByRole("button", { name: "Weitere Filter" });
+      await expect(page.getByLabel("Zimmer ab")).toBeHidden();
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+      await page.getByLabel("Zimmer ab").selectOption("2.5");
+      await page.getByRole("button", { name: "Immobilien suchen", exact: true }).click();
+      await expect(page).toHaveURL(/\/kaufen\?zimmer_von=2\.5/);
+    });
+
     test(`Suche mit Filter-Sheet ohne horizontales Scrollen (${label}) @mobile`, async ({ page }) => {
       await useWidth(page, width);
       await page.goto("/mieten");
@@ -88,7 +104,7 @@ test.describe("Mobile Ansicht @mobile", () => {
       await expect(nav.getByRole("link", { name, exact: true })).toBeVisible();
     }
     await expect(menu.getByRole("link", { name: "Anmelden" })).toBeVisible();
-    await expect(menu.getByRole("link", { name: "Kostenlos starten" })).toBeVisible();
+    await expect(menu.getByRole("link", { name: "Kostenlos inserieren" })).toBeVisible();
 
     await nav.getByRole("link", { name: "Mieten", exact: true }).click();
     await expect(page).toHaveURL(/\/mieten$/);
