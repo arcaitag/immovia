@@ -32,8 +32,9 @@ supabase migration repair --status applied 20261106100000 20261106100100 2026110
    - oder im SQL Editor jede Datei aus `supabase/migrations/` nacheinander ausführen.
    Die Migrationen legen Tabellen, RLS, Funktionen, Storage-Buckets inkl. Policies und die Realtime-Publikation an.
 3. **Auth → URL Configuration**
-   - Site URL: `https://<deine-domain>` (vorläufig die Vercel-Produktions-URL)
-   - Redirect URLs: `https://<deine-domain>/auth/callback`, `https://<deine-domain>/auth/confirm`, für Previews `https://*-arcaitag.vercel.app/**`, lokal `http://localhost:3000/**`
+   - Site URL: `https://<deine-domain>` ohne Schrägstrich am Ende (vorläufig `https://immovia-olive.vercel.app`)
+   - Redirect URLs im **Produktionsprojekt** nur die eigene Adresse: `https://<deine-domain>/**`
+   - Keine Platzhalter für Vercel-Previews (`https://*-arcaitag.vercel.app/**`) und kein `localhost` in der Produktion: Den Namen `<irgendwas>-arcaitag.vercel.app` kann jedes Vercel-Konto für ein eigenes Projekt wählen. Mit einem Passwort-Reset und `redirectTo` auf eine solche Adresse liesse sich sonst eine Sitzung abgreifen. Previews und lokale Entwicklung gehören in ein separates Entwicklungsprojekt (lokal: `supabase/config.toml`).
 4. **Auth → Providers → Email**: «Confirm email» aktiv, minimale Passwortlänge 10. Auf dem Pro-Plan zusätzlich «Leaked password protection» aktivieren.
 5. **Auth → Email Templates**: Inhalte aus `supabase/templates/*.html` übernehmen (Links auf `/auth/confirm?token_hash=…` funktionieren geräteübergreifend). Details: `docs/EMAIL.md`.
 6. **Auth → SMTP**: Ohne eigenes SMTP sendet Supabase nur an Team-Mitglieder und mit tiefem Limit. Für echte Registrierungen Resend als SMTP eintragen (`docs/EMAIL.md`).

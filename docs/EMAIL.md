@@ -83,7 +83,7 @@ content_path = "./supabase/templates/invite.html"
 Supabase Dashboard → **Authentication → URL Configuration**:
 
 - **Site URL:** `https://www.immovia.ch` (wird in den Vorlagen als `{{ .SiteURL }}` verwendet).
-- **Redirect URLs:** `https://www.immovia.ch/**`, `http://localhost:3000/**` und für Vercel-Previews `https://*-<team-slug>.vercel.app/**`.
+- **Redirect URLs:** nur `https://www.immovia.ch/**` (bzw. die aktuelle Produktionsadresse). Keine Preview-Platzhalter und kein `localhost` im Produktionsprojekt (Begründung in `docs/DEPLOYMENT.md`, Abschnitt 1.3).
 
 Hinweis: Die Auth-Vorlagen verlinken immer auf die Site URL. Wer Previews mit echten Bestätigungs-E-Mails testen will, verwendet ein separates Supabase-Projekt mit der Preview-URL als Site URL.
 
