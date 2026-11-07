@@ -75,7 +75,7 @@ Leeres privates Repository anlegen und den Code pushen (`main`). Vercel deployt 
 | `IMAGE_AI_PROVIDER` | nein | Noch kein Anbieter angebunden |
 | `VALUATION_AVM_PROVIDER` | nein | Lizenzierter Bewertungsanbieter, noch nicht angebunden |
 
-3. **Cron**: `vercel.json` ruft `/api/cron/process?scheduled=1` täglich auf (Hobby-Plan erlaubt nur tägliche Crons): Jobs, E-Mails, Erinnerungen, Zusammenfassungen, Aufräumen. E-Mails und Jobs werden zusätzlich direkt nach der auslösenden Aktion verarbeitet. Damit gebündelte Nachrichten-E-Mails (3 Minuten Verzögerung) nicht bis zum nächsten Tag liegen bleiben, zusätzlich den 5-Minuten-Takt über Supabase einrichten (Abschnitt 7).
+3. **Cron** (`vercel.json`, nur Produktion): alle 5 Minuten `/api/cron/process` (Jobs nachholen, E-Mails versenden, auch gebündelte Nachrichten-E-Mails) und stündlich `/api/cron/process?scheduled=1` (Termin-Erinnerungen, Suchauftrag-Zusammenfassungen ab 07:00, Aufräumen). Vercel sendet `CRON_SECRET` automatisch mit. Diese Takte setzen **Vercel Pro** voraus. Auf Hobby schlägt das Deployment mit diesen Ausdrücken fehl: dann nur den Eintrag mit `?scheduled=1` und täglichem Ausdruck behalten (z. B. `0 6 * * *`) und den 5-Minuten-Takt über Supabase einrichten (Abschnitt 7).
 4. **Region**: Functions in `fra1` (nächstgelegen zu Supabase Zürich).
 5. **Deployment prüfen**: Registrierung inkl. Bestätigungs-E-Mail, Login, Immobilie erfassen, Bild hochladen, Inserat veröffentlichen, Suche, Anfrage, Chat, Besichtigung, Dossier-PDF, Admin-Bereich.
 
@@ -100,9 +100,9 @@ Das Vercel-Projekt ist mit «Vercel Authentication» (Standard des Teams) gesch�
 4. Kartenstil: Bewilligung von swisstopo für die kommerzielle Nutzung klären (siehe `docs/ARCHITEKTUR.md`).
 5. `develop` nach `main` mergen → Produktions-Deployment.
 
-## 7. Hintergrundverarbeitung alle 5 Minuten (Supabase Cron)
+## 7. Hintergrundverarbeitung alle 5 Minuten über Supabase (nur Vercel Hobby)
 
-Erst einrichten, wenn die Produktionsadresse öffentlich erreichbar ist (eigene Domain oder Schutz nur für Previews), sonst blockiert der Deployment-Schutz die Aufrufe. Im SQL Editor (Erweiterungen `pg_cron` und `pg_net` unter Database → Extensions aktivieren):
+Auf Vercel Pro übernimmt `vercel.json` den 5-Minuten-Takt; dieser Abschnitt entfällt dann. Auf Hobby erst einrichten, wenn die Produktionsadresse öffentlich erreichbar ist (eigene Domain oder Schutz nur für Previews), sonst blockiert der Deployment-Schutz die Aufrufe. Im SQL Editor (Erweiterungen `pg_cron` und `pg_net` unter Database → Extensions aktivieren):
 
 ```sql
 -- gleicher Wert wie CRON_SECRET in Vercel
@@ -132,7 +132,7 @@ $$);
 | Dienst | Kosten |
 |---|---|
 | Supabase | Free (max. 2 aktive Projekte, pausiert nach Inaktivität) oder Pro ab ca. 25 USD/Monat |
-| Vercel | Hobby gratis (nicht für kommerzielle Nutzung), Pro ab ca. 20 USD/Monat und Mitglied |
+| Vercel | Hobby gratis (nicht für kommerzielle Nutzung, Cron nur täglich), Pro ab ca. 20 USD/Monat und Mitglied (Cron im Minutentakt; Immovia nutzt Pro) |
 | Anthropic | nutzungsabhängig; Kontingente pro Benutzer in den Admin-Einstellungen |
 | Resend | Free bis 3000 E-Mails/Monat |
 | swisstopo/geo.admin.ch | gratis mit Quellenangabe; für kommerzielle Nutzung des Kartenstils Bewilligung von swisstopo einholen |

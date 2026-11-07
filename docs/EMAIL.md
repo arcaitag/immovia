@@ -151,10 +151,9 @@ after(() => flushEmailOutbox());
 
 ## 6. Zeitplan (Cron)
 
-`vercel.json` ruft `/api/cron/process` einmal täglich um 06:00 UTC auf (Grenze des Vercel-Hobby-Plans). Das reicht für Erinnerungen und Zusammenfassungen. Verzögerte E-Mails (z. B. `new_message`, 3 Minuten) gehen sonst erst beim nächsten `flushEmailOutbox()` einer beliebigen Aktion oder beim nächsten Cron-Lauf hinaus. Empfehlung für den Betrieb:
+`vercel.json` (Vercel Pro) ruft `/api/cron/process` alle 5 Minuten auf: Verzögerte E-Mails (z. B. `new_message`, 3 Minuten) gehen spätestens 5 Minuten nach Fälligkeit hinaus. Stündlich läuft `/api/cron/process?scheduled=1` für Termin-Erinnerungen (24 Stunden vorher), Suchauftrag-Zusammenfassungen (täglich bzw. wöchentlich, jeweils ab 07:00 Zürcher Zeit) und Aufräumarbeiten.
 
-- Vercel Pro: Cron alle 5 Minuten (`*/5 * * * *`), oder
-- externer Dienst (z. B. cron-job.org, GitHub Actions) mit `Authorization: Bearer <CRON_SECRET>`.
+Auf Vercel Hobby sind nur tägliche Crons erlaubt; dann den 5-Minuten-Takt über Supabase (`docs/DEPLOYMENT.md`, Abschnitt 7) oder einen externen Dienst mit `Authorization: Bearer <CRON_SECRET>` einrichten.
 
 Manuell auslösen: `curl -H "Authorization: Bearer $CRON_SECRET" https://www.immovia.ch/api/cron/process`
 

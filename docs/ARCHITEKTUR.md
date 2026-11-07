@@ -78,7 +78,7 @@ Alle Tabellen: UUID-Primärschlüssel, `created_at`/`updated_at`, Foreign Keys m
 | Dienst | Zweck | Kosten (Stand Planung, bitte selbst prüfen) |
 |---|---|---|
 | Supabase | DB, Auth, Storage, Realtime | Free (2 Projekte, pausiert bei Inaktivität) oder Pro ab ca. 25 USD/Monat |
-| Vercel | Hosting | Hobby gratis (nicht für kommerzielle Nutzung), Pro ab ca. 20 USD/Monat |
+| Vercel | Hosting, Cron | Hobby gratis (nicht für kommerzielle Nutzung, Cron nur täglich), Pro ab ca. 20 USD/Monat (Cron im Minutentakt) |
 | Anthropic | KI-Texte, Erklärungen, Assistent | nutzungsabhängig pro Token, Kontingente in `feature_settings` |
 | Resend | Transaktions-E-Mails, SMTP für Supabase Auth | Free bis 3000 Mails/Monat, danach kostenpflichtig |
 | swisstopo / geo.admin.ch | Karten, Ortssuche | gratis, Quellenangabe Pflicht, Fair-Use; kommerzielle Nutzung des Kartenstils bewilligungspflichtig (siehe oben) |

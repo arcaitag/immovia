@@ -53,7 +53,7 @@ Stand: 7. November 2026, Branch `develop`. Dieses Dokument sagt ehrlich, was fer
 ## Bekannte Grenzen
 
 - Realtime (Chat, Benachrichtigungen) wurde lokal ohne Realtime-Server getestet; die Seiten funktionieren dann mit Neuladen. Online mit Supabase Realtime noch nicht geprüft, weil die App dort noch nicht läuft.
-- Vercel Hobby erlaubt nur tägliche Cron-Aufrufe. E-Mails und Jobs werden direkt nach der Aktion verarbeitet; für gebündelte Nachrichten-E-Mails braucht es den 5-Minuten-Takt über Supabase.
+- Die Cron-Takte (alle 5 Minuten, stündlich) setzen Vercel Pro voraus. Bei einem Wechsel auf Hobby `vercel.json` anpassen (`docs/DEPLOYMENT.md`, Abschnitt 3.3).
 - Die Migrationshistorie der gehosteten Datenbank weicht von den Dateinamen ab (Migrationen teils in mehreren Teilen eingespielt). Vor der ersten Arbeit mit der Supabase CLI einmalig angleichen (`docs/DEPLOYMENT.md`, Abschnitt 0).
 
 ## Verlauf

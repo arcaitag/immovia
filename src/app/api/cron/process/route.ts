@@ -8,10 +8,10 @@ import { runScheduledTasks } from "@/lib/jobs/scheduled";
 export const maxDuration = 300;
 
 /**
- * Cron-Endpoint für Hintergrundaufgaben, geschützt mit CRON_SECRET.
- * - Ohne Parameter (alle 5 Minuten, Supabase pg_cron): Jobs nachholen und E-Mails versenden.
- * - Mit ?scheduled=1 (stündlich bzw. täglich über Vercel Cron): zusätzlich Erinnerungen,
- *   Zusammenfassungen und Aufräumarbeiten.
+ * Cron-Endpoint für Hintergrundaufgaben, geschützt mit CRON_SECRET (vercel.json).
+ * - Ohne Parameter (alle 5 Minuten): Jobs nachholen und E-Mails versenden.
+ * - Mit ?scheduled=1 (stündlich; auf Vercel Hobby nur täglich möglich): zusätzlich Erinnerungen,
+ *   Zusammenfassungen und Aufräumarbeiten. Alle Aufgaben sind wiederholbar und laufen ohne Doppelversand.
  */
 export async function GET(request: NextRequest) {
   const secret = serverEnv.cronSecret;

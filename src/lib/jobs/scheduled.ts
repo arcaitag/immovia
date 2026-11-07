@@ -5,6 +5,7 @@ import { formatTimeRange } from "@/lib/format";
 import { queueEmail } from "@/lib/email/queue";
 import { searchCriteriaSchema, toSearchParams } from "@/lib/search/criteria";
 import { zurichDateKey } from "@/lib/viewings/calendar";
+import { isDigestDue } from "@/lib/jobs/digest-schedule";
 import type { Json } from "@/types/database";
 
 /**
@@ -18,8 +19,6 @@ import type { Json } from "@/types/database";
 
 const REMINDER_WINDOW_HOURS = 24;
 const REMINDER_BATCH = 200;
-/** Toleranz, damit ein täglicher Cron um 06:00 nicht wegen Sekunden einen Tag überspringt. */
-const DIGEST_DUE_HOURS = { daily: 20, weekly: 6 * 24 + 12 } as const;
 const DIGEST_MAX_LISTINGS = 10;
 const NOTIFICATION_RETENTION_DAYS = 180;
 
@@ -125,13 +124,6 @@ function searchPathFromCriteria(criteria: Json): string | null {
   const base = offer === "sale" ? "/kaufen" : offer === "rent" ? "/mieten" : "/immobilien";
   const params = toSearchParams({ criteria: parsed.data }, { omitOffer: Boolean(offer) }).toString();
   return params ? `${base}?${params}` : base;
-}
-
-function isDigestDue(frequency: string, lastNotifiedAt: string | null, now: Date): boolean {
-  if (frequency !== "daily" && frequency !== "weekly") return false;
-  if (!lastNotifiedAt) return true;
-  const hours = DIGEST_DUE_HOURS[frequency];
-  return now.getTime() - new Date(lastNotifiedAt).getTime() >= hours * 3600_000;
 }
 
 async function sendSearchDigests(admin: AdminSupabaseClient, now: Date, counters: Counters): Promise<void> {
