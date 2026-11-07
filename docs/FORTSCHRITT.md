@@ -8,8 +8,8 @@ Stand: 7. November 2026, Branch `develop`. Dieses Dokument sagt ehrlich, was fer
 |---|---|
 | Code | Alle Bereiche der Spezifikation umgesetzt und mit dem Backend verbunden (siehe unten). Lokal vollständig geprüft. |
 | Tests | 302 Unit-Tests, 44 Datenbanktests (RLS, Rechte, Abläufe), 22 E2E-Tests (Szenarien A–D, Mobile, öffentliche Seiten) – alle grün, lokal gegen einen Produktions-Build. |
-| Supabase (gehostet) | Projekt `immovia` in Zürich. Alle Migrationen eingespielt und per Schema-Prüfsumme mit der getesteten Datenbank verglichen. **Offen:** Entfernen von zwei leeren Spalten (siehe `docs/DEPLOYMENT.md`, Abschnitt 0). Keine Demo-Daten. |
-| Vercel | Projekt verbunden, Builds von `develop` sind grün. **Die App läuft online noch nicht**: Die Umgebungsvariablen fehlen, die Suche meldet deshalb «Datenbank ist nicht erreichbar». Die Produktion (`main`) steht noch auf einem frühen Stand und ist durch Vercel Authentication geschützt. |
+| Supabase (gehostet) | Projekt `immovia` in Zürich. Alle Migrationen eingespielt und per Schema-Prüfsumme mit der getesteten Datenbank verglichen. Keine Demo-Daten. |
+| Vercel | Produktion (`main`) läuft auf dem aktuellen Stand mit Datenbankanbindung, geschützt durch Vercel Authentication (nur Team-Mitglieder). Umgebungsvariablen sind nur für «Production» gesetzt; Previews von `develop` laufen deshalb ohne Datenbank. Cron alle 5 Minuten bzw. stündlich (Vercel Pro). |
 | Livegang | Noch nicht erfolgt. Voraussetzungen siehe «Offene Schritte». |
 
 ## Umgesetzt
@@ -41,14 +41,13 @@ Stand: 7. November 2026, Branch `develop`. Dieses Dokument sagt ehrlich, was fer
 
 ## Offene Schritte (brauchen dich)
 
-1. **Vercel-Umgebungsvariablen setzen** (Project → Settings → Environment Variables, Production und Preview): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `CRON_SECRET`, `ANALYTICS_SALT`, `NEXT_PUBLIC_SITE_URL` (nur Production) sowie optional `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`. Danach neu deployen. Claude hat keine Berechtigung, Umgebungsvariablen zu lesen oder zu setzen.
-2. **Spalten entfernen** im Supabase SQL Editor (`docs/DEPLOYMENT.md`, Abschnitt 0).
-3. **Supabase Auth**: Site URL und Redirect URLs, E-Mail-Vorlagen aus `supabase/templates/`, SMTP (Resend), «Confirm email» aktiv, Passwortlänge 10.
-4. **Ersten Administrator** anlegen (SQL in `docs/DEPLOYMENT.md`, Abschnitt 1.8).
+1. **Supabase Auth**: Site URL `https://immovia-olive.vercel.app` (später die eigene Domain) und Redirect URLs (`docs/DEPLOYMENT.md`, Abschnitt 1.3), E-Mail-Vorlagen aus `supabase/templates/`, SMTP (Resend), «Confirm email» aktiv, Passwortlänge 10. Ohne eigenes SMTP verschickt Supabase nur an Mitglieder des Supabase-Teams und mit tiefem Limit.
+2. **Ersten Administrator** anlegen: normal registrieren, dann SQL aus `docs/DEPLOYMENT.md`, Abschnitt 1.8.
+3. **Optionale Dienste**: `ANTHROPIC_API_KEY` (KI-Funktionen), `RESEND_API_KEY` und `EMAIL_FROM` (E-Mails an Benutzer) in Vercel für «Production» setzen und neu deployen.
+4. **Previews**: Für Previews mit Datenbank eine zweite Supabase-Datenbank (Entwicklung, mit Demo-Daten) anlegen und deren Schlüssel nur für «Preview» setzen. Die Produktionsschlüssel nicht für Previews verwenden.
 5. **Rechtstexte** prüfen lassen und ergänzen, danach `LEGAL_PAGES_ARE_DRAFTS` auf `false` setzen.
 6. **swisstopo**: Bewilligung für die kommerzielle Nutzung des Kartenstils klären.
-7. **Livegang**: eigene Domain oder Deployment-Schutz nur für Previews, `develop` nach `main` mergen, Supabase-Cron (5-Minuten-Takt) einrichten (`docs/DEPLOYMENT.md`, Abschnitte 6 und 7).
-8. **Zweite Supabase-Datenbank für Previews** (empfohlen): Previews nutzen derzeit dieselbe Datenbank wie die Produktion. Für Tests mit Demo-Daten ein eigenes Entwicklungsprojekt anlegen und dessen Schlüssel nur für «Preview» setzen.
+7. **Livegang**: eigene Domain verbinden oder den Deployment-Schutz auf Previews beschränken (`docs/DEPLOYMENT.md`, Abschnitt 6).
 
 ## Bekannte Grenzen
 
@@ -64,3 +63,4 @@ Stand: 7. November 2026, Branch `develop`. Dieses Dokument sagt ehrlich, was fer
 | 6.11.2026 | Fachbereiche: Immobilien, Inserate, Suche, Bewertung, KI, Bilder, Dossiers, Kommunikation, Besichtigungen, Firmen, Admin, E-Mails |
 | 6.11.2026 | Review: Datenschutz-Korrekturen (Kontaktangaben, Prüfvermerke, KI-Einwilligung), Rechte-Härtung, Aufräumjobs, Schema in Supabase eingespielt und geprüft |
 | 7.11.2026 | E2E-Szenarien A–D und Mobile; dabei gefundene Fehler behoben (Service Worker, Filter-Sheet, Aufrufstatistik, Admin-Text, Layout auf schmalen Bildschirmen, Barrierefreiheit) |
+| 7.11.2026 | Umgebungsvariablen für Produktion gesetzt, `develop` nach `main` übernommen: Produktion läuft mit Datenbank (geschützt); Cron für Vercel Pro |

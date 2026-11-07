@@ -7,15 +7,8 @@ Diese Anleitung beschreibt die Einrichtung von Immovia in einer neuen Umgebung. 
 | Teil | Stand |
 |---|---|
 | GitHub | `arcaitag/immovia`; Entwicklung auf `develop` (Preview-Deployments), Produktion = `main` |
-| Supabase | Projekt `immovia` (Ref `wlvhzhphpyvlqkafskwf`, Zürich, PostgreSQL 17). Alle Migrationen bis `20261107100000` eingespielt und per `scripts/schema-fingerprint.sql` gegen die lokal getestete Datenbank geprüft. **Offen:** das Entfernen der zwei leeren Spalten `listings.contact_email`/`contact_phone` (siehe unten, braucht eine Bestätigung im Dashboard). Keine Demo-Daten. |
-| Vercel | Projekt `immovia` (Team arcaitag), mit dem Repository verbunden. Produktionsdomain `immovia-olive.vercel.app`, derzeit durch **Vercel Authentication** geschützt (nur Team-Mitglieder). Die Produktion steht noch auf einem frühen Stand von `main`; der aktuelle Code liegt auf `develop`. Umgebungsvariablen fehlen noch und müssen im Dashboard gesetzt werden (siehe 3.2). |
-
-### Noch auszuführen (Supabase SQL Editor)
-
-```sql
--- Teil von Migration 20261106250000: private Kontaktfelder liegen in listing_contacts
-alter table public.listings drop column contact_email, drop column contact_phone;
-```
+| Supabase | Projekt `immovia` (Ref `wlvhzhphpyvlqkafskwf`, Zürich, PostgreSQL 17). Alle Migrationen bis `20261107100000` eingespielt und per `scripts/schema-fingerprint.sql` gegen die lokal getestete Datenbank geprüft. Keine Demo-Daten. |
+| Vercel | Projekt `immovia` (Team arcaitag), mit dem Repository verbunden. Produktionsdomain `immovia-olive.vercel.app`, derzeit durch **Vercel Authentication** geschützt (nur Team-Mitglieder). Produktion = `main` auf dem aktuellen Stand, Umgebungsvariablen für «Production» gesetzt. Previews von `develop` haben keine Umgebungsvariablen (siehe 3.2 und `docs/FORTSCHRITT.md`). |
 
 ### Migrationshistorie und Supabase CLI
 
