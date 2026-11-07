@@ -184,7 +184,9 @@ export default function DatenschutzPage() {
               zufälligen Kennung im Cookie «iv_vid», dem Datum und einem geheimen Wert wird ein Hashwert gebildet. Gespeichert
               wird nur dieser Hashwert, der sich täglich ändert – keine IP-Adresse. Pro Besucher, Inserat und Tag wird höchstens
               ein Aufruf gezählt. Aufrufe von Suchmaschinen-Robotern sowie der Inserierenden selbst werden nicht gezählt.
-              Inserierende sehen nur Summen.
+              Inserierende sehen nur Summen. Zum Schutz vor künstlich erhöhten Zahlen begrenzen wir, wie viele neue Kennungen
+              pro Stunde von derselben IP-Adresse entstehen: Dafür speichern wir höchstens zwei Tage lang einen täglich
+              wechselnden Hashwert der IP-Adresse in einem Zähler, nie die IP-Adresse selbst.
             </p>
           </LegalSection>
 

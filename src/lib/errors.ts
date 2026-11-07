@@ -90,6 +90,7 @@ const DB_MESSAGES: Record<string, { code: ErrorCode; message: string }> = {
   invalid_expiry: { code: "validation", message: "Das Ablaufdatum muss in der Zukunft liegen." },
   invalid_status: { code: "validation", message: "Ungültiger Status." },
   invalid_action: { code: "validation", message: "Diese Aktion ist nicht vorgesehen." },
+  invalid_path: { code: "forbidden", message: "Die Datei gehört nicht zu dieser Immobilie." },
   invalid_kind: { code: "validation", message: "Diese Art von Prüfung ist hier nicht möglich." },
   invalid_subject: { code: "not_found", message: "Das zu prüfende Konto oder Objekt wurde nicht gefunden." },
   member_inactive: { code: "invalid_state", message: "Dieses Mitglied ist nicht aktiv und kann die Inhaberschaft nicht übernehmen." },

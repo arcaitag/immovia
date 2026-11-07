@@ -10,7 +10,7 @@
 | Datenbank | Vitest + echte PostgreSQL | `npm run test:db` | RLS, Spalten- und Funktionsrechte, Trigger, RPCs, Abläufe |
 | End-to-End | Playwright | `npm run test:e2e` | Szenarien A–D, Mobile, öffentliche Seiten gegen eine laufende Instanz |
 
-Letzter vollständiger Lauf (7. November 2026, lokal): 302 Unit-Tests, 44 Datenbanktests, 15 E2E-Tests Desktop und 7 E2E-Tests Mobile – alle grün.
+Letzter vollständiger Lauf (7. November 2026, lokal): 327 Unit-Tests, 48 Datenbanktests, 15 E2E-Tests Desktop und 7 E2E-Tests Mobile – alle grün.
 
 ## Datenbanktests
 
@@ -29,6 +29,7 @@ Abgedeckt (Auszug):
 - Konversationen und Leads: Fremde lesen/schreiben nicht; Interessenten sehen keine Leads/Notizen; Blockieren wirkt
 - Besichtigungen: Kapazität, parallele Buchungen (zwei Verbindungen gleichzeitig), keine überlappenden Zeitfenster
 - Inserate: Pflichtfelder, erlaubte Statusübergänge, Prüfpflicht, gesperrte Inserate; Aufrufe ändern `updated_at` nicht
+- Dossiers: Benutzer ändern nur die Freigabe; öffentliche Dossier-Dateien nur am vorgesehenen Ort. Bildpfade bleiben im Ordner des eigenen Bildes
 - Suche inkl. Umkreis; Suchabos benachrichtigen pro Inserat genau einmal
 - Rate Limiting bei Nachrichten; Bewertungen ohne Datengrundlage enthalten keine Zahl
 - Rechte-Invarianten (`tests/db/privileges.test.ts`): `anon` darf genau die freigegebenen Funktionen ausführen und Tabellen nur lesen; `authenticated` erhält keine internen Funktionen und Trigger-Funktionen; jede `SECURITY DEFINER`-Funktion hat einen festen `search_path`; RLS ist auf allen Tabellen aktiv

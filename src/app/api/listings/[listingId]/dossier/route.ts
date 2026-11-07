@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createPublicClient } from "@/lib/supabase/public";
 import { pdfFileName } from "@/lib/pdf/render";
 import { isUuid } from "@/lib/utils";
+import { dossierStoragePath } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -32,7 +33,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     .eq("is_public", true)
     .eq("status", "ready")
     .maybeSingle();
-  if (!dossier?.storage_path) return notFound();
+  if (!dossier?.storage_path || dossier.storage_path !== dossierStoragePath(listing.property_id, dossier.id)) return notFound();
 
   const { data: signed, error } = await supabase.storage
     .from("dossiers")

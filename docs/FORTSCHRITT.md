@@ -7,7 +7,7 @@ Stand: 7. November 2026, Branch `develop`. Dieses Dokument sagt ehrlich, was fer
 | Bereich | Stand |
 |---|---|
 | Code | Alle Bereiche der Spezifikation umgesetzt und mit dem Backend verbunden (siehe unten). Lokal vollständig geprüft. |
-| Tests | 302 Unit-Tests, 44 Datenbanktests (RLS, Rechte, Abläufe), 22 E2E-Tests (Szenarien A–D, Mobile, öffentliche Seiten) – alle grün, lokal gegen einen Produktions-Build. |
+| Tests | 327 Unit-Tests, 48 Datenbanktests (RLS, Rechte, Abläufe), 22 E2E-Tests (Szenarien A–D, Mobile, öffentliche Seiten) – alle grün, lokal gegen einen Produktions-Build. Unabhängige Sicherheitsprüfung der Server-Grenze durchgeführt, Befunde behoben. |
 | Supabase (gehostet) | Projekt `immovia` in Zürich. Alle Migrationen eingespielt und per Schema-Prüfsumme mit der getesteten Datenbank verglichen. Keine Demo-Daten. |
 | Vercel | Produktion (`main`) läuft auf dem aktuellen Stand mit Datenbankanbindung, geschützt durch Vercel Authentication (nur Team-Mitglieder). Umgebungsvariablen sind nur für «Production» gesetzt; Previews von `develop` laufen deshalb ohne Datenbank. Cron alle 5 Minuten bzw. stündlich (Vercel Pro). |
 | Livegang | Noch nicht erfolgt. Voraussetzungen siehe «Offene Schritte». |
@@ -64,3 +64,4 @@ Stand: 7. November 2026, Branch `develop`. Dieses Dokument sagt ehrlich, was fer
 | 6.11.2026 | Review: Datenschutz-Korrekturen (Kontaktangaben, Prüfvermerke, KI-Einwilligung), Rechte-Härtung, Aufräumjobs, Schema in Supabase eingespielt und geprüft |
 | 7.11.2026 | E2E-Szenarien A–D und Mobile; dabei gefundene Fehler behoben (Service Worker, Filter-Sheet, Aufrufstatistik, Admin-Text, Layout auf schmalen Bildschirmen, Barrierefreiheit) |
 | 7.11.2026 | Umgebungsvariablen für Produktion gesetzt, `develop` nach `main` übernommen: Produktion läuft mit Datenbank (geschützt); Cron für Vercel Pro |
+| 7.11.2026 | Unabhängige Sicherheitsprüfung (Service Role, API-Routen, Server Actions): Open Redirect nach dem Login, Assistent-Kontingent bei Abbruch, Dossier-Pfade, Bildpfade, private E-Mail im Dossier, Rechteprüfung bei Hintergrundjobs, Aufrufzähler, PDF-Rate-Limit und Demo-Seed-Schutz behoben |

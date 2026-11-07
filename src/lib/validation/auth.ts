@@ -31,10 +31,27 @@ export const resetPasswordSchema = z
   })
   .refine((v) => v.password === v.confirm, { message: "Die Passwörter stimmen nicht überein.", path: ["confirm"] });
 
-/** Nur interne, relative Weiterleitungsziele zulassen (Schutz vor Open Redirects). */
+const REDIRECT_BASE = "https://immovia.invalid";
+
+/**
+ * Nur interne, relative Weiterleitungsziele zulassen (Schutz vor Open Redirects).
+ * Browser entfernen Tabs und Zeilenumbrüche beim Parsen und lesen «\» als «/»: Aus «/\t/evil.example»
+ * würde «//evil.example». Deshalb Steuerzeichen und Backslashes ablehnen und das Ziel wie ein Browser
+ * auflösen; nur Ziele auf derselben Origin sind erlaubt.
+ */
 export function safeRedirectPath(value: unknown, fallback = "/dashboard"): string {
-  if (typeof value !== "string") return fallback;
-  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return fallback;
-  if (/^\/(auth|api)\//.test(value)) return fallback;
-  return value.slice(0, 500);
+  if (typeof value !== "string" || !value.startsWith("/") || value.length > 2000) return fallback;
+  if (/[\u0000-\u001f\u007f\\]/.test(value)) return fallback;
+  let url: URL;
+  try {
+    url = new URL(value, REDIRECT_BASE);
+  } catch {
+    return fallback;
+  }
+  if (url.origin !== REDIRECT_BASE) return fallback;
+  if (/^\/(auth|api)(\/|$)/.test(url.pathname)) return fallback;
+  const result = `${url.pathname}${url.search}${url.hash}`.slice(0, 500);
+  // Nach dem Normalisieren erneut prüfen: «/.//evil.example» wird zu «//evil.example»
+  if (result.startsWith("//") || new URL(result, REDIRECT_BASE).origin !== REDIRECT_BASE) return fallback;
+  return result;
 }

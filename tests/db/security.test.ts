@@ -313,3 +313,112 @@ describe("Datenintegrität", () => {
     });
   });
 });
+
+describe("Sicherheitsprüfung: Dossiers und Bildpfade", () => {
+  const victimDossier = "60000000-0000-4000-8000-000000000001";
+  const ownDossier = "60000000-0000-4000-8000-000000000002";
+
+  beforeAll(async () => {
+    // Wie der Hintergrundjob (privilegiert): je ein fertiges Dossier am vorgesehenen Ort
+    await db.query(
+      `insert into public.generated_dossiers (id, property_id, template_id, version, status, storage_path)
+       values ($1::uuid, $2::uuid, 'modern', 1, 'ready', $5),
+              ($3::uuid, $4::uuid, 'modern', 1, 'ready', $6)`,
+      [
+        victimDossier,
+        IDS.orgProperty,
+        ownDossier,
+        IDS.property,
+        `${IDS.orgProperty}/${victimDossier}.pdf`,
+        `${IDS.property}/${ownDossier}.pdf`,
+      ],
+    );
+    await db.query(`update public.listings set dossier_public = true where id = $1`, [IDS.listing]);
+  });
+
+  it("Verkäufer können keine Dossier-Datensätze anlegen", async () => {
+    await withSession(db, as(IDS.seller), async (s) => {
+      await expectError(
+        s.query(
+          `insert into public.generated_dossiers (property_id, template_id, version, status, storage_path, is_public)
+           values ($1, 'modern', 9, 'ready', $2, true)`,
+          [IDS.property, `${IDS.orgProperty}/${victimDossier}.pdf`],
+        ),
+        /permission denied/,
+      );
+    });
+  });
+
+  it("Verkäufer können Pfad und Status eines Dossiers nicht ändern, nur die Freigabe", async () => {
+    await withSession(db, as(IDS.seller), async (s) => {
+      await expectError(
+        s.query(`update public.generated_dossiers set storage_path = $2 where id = $1`, [ownDossier, `${IDS.orgProperty}/${victimDossier}.pdf`]),
+        /permission denied/,
+      );
+    });
+    await withSession(db, as(IDS.seller), async (s) => {
+      await expectError(s.query(`update public.generated_dossiers set status = 'ready' where id = $1`, [ownDossier]), /permission denied/);
+    });
+    await withSession(db, as(IDS.seller), async (s) => {
+      const rows = await s.query<{ is_public: boolean }>(
+        `update public.generated_dossiers set is_public = true where id = $1 returning is_public`,
+        [ownDossier],
+      );
+      expect(rows[0]?.is_public).toBe(true);
+    });
+  });
+
+  it("öffentliche Dossier-Dateien nur am vorgesehenen Ort", async () => {
+    // Datensatz mit fremdem Pfad (z. B. aus der Zeit vor der Korrektur) macht die fremde Datei nicht öffentlich
+    await db.query(`update public.generated_dossiers set is_public = true, storage_path = $2 where id = $1`, [
+      ownDossier,
+      `${IDS.orgProperty}/${victimDossier}.pdf`,
+    ]);
+    await withSession(db, anon, async (s) => {
+      const foreign = await s.query<{ ok: boolean }>(`select public.is_public_dossier_object($1) as ok`, [`${IDS.orgProperty}/${victimDossier}.pdf`]);
+      expect(foreign[0]?.ok).toBe(false);
+    });
+    await db.query(`update public.generated_dossiers set storage_path = $2 where id = $1`, [ownDossier, `${IDS.property}/${ownDossier}.pdf`]);
+    await withSession(db, anon, async (s) => {
+      const own = await s.query<{ ok: boolean }>(`select public.is_public_dossier_object($1) as ok`, [`${IDS.property}/${ownDossier}.pdf`]);
+      expect(own[0]?.ok).toBe(true);
+    });
+  });
+
+  it("Bilder können nicht auf Dateien einer fremden Immobilie zeigen", async () => {
+    const imageId = "70000000-0000-4000-8000-000000000001";
+    await withSession(db, as(IDS.seller), async (s) => {
+      await expectError(
+        s.query(
+          `insert into public.property_images (id, property_id, original_path, base_path, display_path, status)
+           values ($1, $2, $3, $4, $4, 'ready')`,
+          [imageId, IDS.property, `${IDS.orgProperty}/80000000-0000-4000-8000-000000000001.jpg`, `${IDS.property}/${imageId}/base`],
+        ),
+        /invalid_path/,
+      );
+    });
+    await withSession(db, as(IDS.seller), async (s) => {
+      await expectError(
+        s.query(
+          `insert into public.property_images (id, property_id, original_path, base_path, display_path, status)
+           values ($1, $2, $3, $4, $4, 'ready')`,
+          [imageId, IDS.property, `${IDS.property}/${imageId}.jpg`, `${IDS.orgProperty}/irgendwas/base`],
+        ),
+        /invalid_path/,
+      );
+    });
+    await withSession(db, as(IDS.seller), async (s) => {
+      await s.query(
+        `insert into public.property_images (id, property_id, original_path, base_path, display_path, status)
+         values ($1, $2, $3, $4, $4, 'ready')`,
+        [imageId, IDS.property, `${IDS.property}/${imageId}.jpg`, `${IDS.property}/${imageId}/base`],
+      );
+      // Zuschneiden: neuer Anzeigepfad im eigenen Ordner ist erlaubt, ein fremder nicht
+      await s.query(`update public.property_images set display_path = $2 where id = $1`, [imageId, `${IDS.property}/${imageId}/crop-1`]);
+      await expectError(
+        s.query(`update public.property_images set display_path = $2 where id = $1`, [imageId, `${IDS.orgProperty}/x/base`]),
+        /invalid_path/,
+      );
+    });
+  });
+});

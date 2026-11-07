@@ -374,7 +374,13 @@ export function ListingForm({
             <Field label="Name" htmlFor="inserat-kontakt-name" error={errorOf(form, "contact_name")} optional>
               <Input {...form.register("contact_name")} autoComplete="name" maxLength={120} />
             </Field>
-            <Field label="E-Mail" htmlFor="inserat-kontakt-email" error={errorOf(form, "contact_email")} optional>
+            <Field
+              label="E-Mail"
+              htmlFor="inserat-kontakt-email"
+              error={errorOf(form, "contact_email")}
+              hint="Wird nicht veröffentlicht – weder im Inserat noch im Verkaufsdossier."
+              optional
+            >
               <Input {...form.register("contact_email")} type="email" autoComplete="email" maxLength={254} />
             </Field>
             <Field label="Telefon" htmlFor="inserat-kontakt-telefon" error={errorOf(form, "contact_phone")} optional={!showPhone}>

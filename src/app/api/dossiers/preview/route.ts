@@ -20,6 +20,7 @@ export const maxDuration = 300;
 export async function GET(request: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Bitte melden Sie sich an." }, { status: 401 });
+  if (user.profile.status !== "active") return NextResponse.json({ error: "Ihr Konto ist derzeit gesperrt." }, { status: 403 });
   const url = new URL(request.url);
   const propertyId = url.searchParams.get("propertyId") ?? "";
   const template = url.searchParams.get("template") as DossierTemplateId | null;

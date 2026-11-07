@@ -1,9 +1,10 @@
 import "server-only";
 
 import type { AiFeature } from "@/lib/ai/config";
+import type { TokenUsage } from "@/lib/ai/cost";
 import { assertAiConsent } from "@/lib/ai/consent";
 import { requireAiProvider } from "@/lib/ai/provider";
-import { logAiUsage } from "@/lib/ai/usage";
+import { completeAiUsage, logAiUsage, reserveAiUsage } from "@/lib/ai/usage";
 import {
   AiOutputError,
   type AiStructuredResult,
@@ -36,6 +37,9 @@ async function prepare(meta: AiCallMeta) {
 
 function failureDetails(error: unknown, fallbackModel: string) {
   if (error instanceof AiOutputError) return { usage: error.usage, model: error.model ?? fallbackModel };
+  // Abgebrochene Streams tragen den bis dahin angefallenen Verbrauch (siehe AnthropicProvider.streamText)
+  const partial = error as { usage?: TokenUsage; model?: string } | null;
+  if (partial && typeof partial === "object" && partial.usage) return { usage: partial.usage, model: partial.model ?? fallbackModel };
   return { usage: undefined, model: fallbackModel };
 }
 
@@ -63,23 +67,27 @@ export async function aiGenerateText(meta: AiCallMeta, options: GenerateTextOpti
   }
 }
 
-/** Streaming (Assistent). Der Verbrauch wird protokolliert, sobald der Stream endet. */
+/**
+ * Streaming (Assistent). Der Verbrauchseintrag wird beim Start reserviert (zählt sofort fürs
+ * Kontingent) und beim Ende des Streams mit Tokens und Ergebnis ergänzt – auch bei Abbruch.
+ */
 export async function aiStreamText(meta: AiCallMeta, options: StreamTextOptions): Promise<AiTextStream> {
   const provider = await prepare(meta);
+  const reservation = await reserveAiUsage({ ...meta, provider: provider.id, model: provider.model });
   let stream: AiTextStream;
   try {
     stream = await provider.streamText(options);
   } catch (error) {
-    await logAiUsage({ ...meta, provider: provider.id, model: provider.model, success: false });
+    await completeAiUsage(reservation, { ...meta, provider: provider.id, ...failureDetails(error, provider.model), success: false });
     throw error;
   }
   const final = stream.final.then(
     async (result) => {
-      await logAiUsage({ ...meta, provider: provider.id, model: result.model, usage: result.usage, success: true });
+      await completeAiUsage(reservation, { ...meta, provider: provider.id, model: result.model, usage: result.usage, success: true });
       return result;
     },
     async (error: unknown) => {
-      await logAiUsage({ ...meta, provider: provider.id, ...failureDetails(error, provider.model), success: false });
+      await completeAiUsage(reservation, { ...meta, provider: provider.id, ...failureDetails(error, provider.model), success: false });
       throw error;
     },
   );

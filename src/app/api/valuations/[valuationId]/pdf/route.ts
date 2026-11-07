@@ -7,6 +7,7 @@ import { pdfFileName, renderPdf } from "@/lib/pdf/render";
 import { buildValuationReportContent } from "@/lib/valuation/view";
 import { formatDate } from "@/lib/format";
 import { isUuid } from "@/lib/utils";
+import { enforceRateLimit } from "@/services/ai/access";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -17,6 +18,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (!isUuid(valuationId)) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Bitte melden Sie sich an." }, { status: 401 });
+  if (user.profile.status !== "active") return NextResponse.json({ error: "Ihr Konto ist derzeit gesperrt." }, { status: 403 });
+  try {
+    // PDF-Erzeugung ist rechenintensiv: pro Konto begrenzen
+    await enforceRateLimit(`valuation-pdf:${user.id}`, 10, 60);
+  } catch {
+    return NextResponse.json({ error: "Zu viele Anfragen. Bitte versuchen Sie es in einer Minute erneut." }, { status: 429 });
+  }
 
   const supabase = await createClient();
   const { data: valuation } = await supabase.from("property_valuations").select("*").eq("id", valuationId).maybeSingle();

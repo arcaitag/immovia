@@ -16,6 +16,10 @@ begin
   if exists (select 1 from public.listings where not is_demo) then
     raise exception 'Abbruch: Es existieren echte Inserate. Demo-Daten nur in leere Entwicklungsdatenbanken einspielen.';
   end if;
+  -- Echte Konten deuten auf eine Produktionsdatenbank hin (Demo- und Testkonten enden auf immovia.test)
+  if exists (select 1 from auth.users where email is null or email not like '%@%immovia.test') then
+    raise exception 'Abbruch: Es existieren echte Benutzerkonten. Demo-Daten (inkl. Demo-Administrator) nie in die Produktion einspielen.';
+  end if;
   if exists (select 1 from auth.users where email like 'demo-%@immovia.test') then
     raise exception 'Demo-Daten sind bereits vorhanden.';
   end if;

@@ -257,13 +257,15 @@ export async function buildDossierContent(input: BuildDossierInput): Promise<Bui
       email: options.contact?.email?.trim() || null,
     };
   } else {
-    const privateContact = listing ? await loadDossierContact(client, listing.id) : null;
+    const privateContact = listing && listing.show_contact_phone ? await loadDossierContact(client, listing.id) : null;
     contact = {
       name: listing?.contact_name?.trim() || null,
       company: null,
-      // Telefon nur, wenn es auch im Inserat angezeigt werden darf; E-Mail nur, wenn vorhanden
-      phone: listing?.show_contact_phone ? privateContact?.contact_phone?.trim() || null : null,
-      email: privateContact?.contact_email?.trim() || null,
+      // Ein Dossier kann öffentlich freigegeben werden: Telefon nur, wenn es auch im Inserat angezeigt
+      // werden darf. Die private Kontakt-E-Mail nie automatisch – nur, wenn sie im Dossier-Editor
+      // ausdrücklich unter «Kontakt» eingetragen wird (options.contact).
+      phone: privateContact?.contact_phone?.trim() || null,
+      email: null,
     };
   }
 

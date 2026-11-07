@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createAdminClient, isServiceRoleConfigured } from "@/lib/supabase/admin";
+import { createAdminClient, isServiceRoleConfigured, type AdminSupabaseClient } from "@/lib/supabase/admin";
 import { AppError, fromDbError } from "@/lib/errors";
 import type { Json } from "@/types/database";
 import { JOB_HANDLERS } from "@/lib/jobs/handlers";
@@ -85,13 +85,48 @@ async function finishJob(job: JobRow, outcome: { ok: true; result: Json } | { ok
   return data ?? job;
 }
 
+/**
+ * Berechtigung beim Ausführen erneut prüfen: Handler laufen mit der Service Role, oft erst Minuten
+ * nach dem Einreihen (Wiederholung, Cron). Gesperrte Konten und inzwischen entfernte Teammitglieder
+ * lösen nichts mehr aus.
+ */
+async function assertJobStillAllowed(admin: AdminSupabaseClient, job: JobRow): Promise<void> {
+  if (!job.user_id) throw new PermanentJobError("Der Auftrag gehört zu keinem Konto mehr.");
+  const { data: profile } = await admin.from("profiles").select("status").eq("id", job.user_id).maybeSingle();
+  if (profile?.status !== "active") throw new PermanentJobError("Das Konto ist nicht aktiv.");
+  if (!job.property_id) return;
+
+  const { data: property } = await admin
+    .from("properties")
+    .select("owner_id, organization_id, deleted_at")
+    .eq("id", job.property_id)
+    .maybeSingle();
+  if (!property || property.deleted_at) throw new PermanentJobError("Die Immobilie ist nicht mehr vorhanden.");
+  if (property.owner_id === job.user_id) return;
+  if (property.organization_id) {
+    const [{ data: member }, { data: organization }] = await Promise.all([
+      admin
+        .from("organization_members")
+        .select("user_id")
+        .eq("organization_id", property.organization_id)
+        .eq("user_id", job.user_id)
+        .maybeSingle(),
+      admin.from("organizations").select("status, deleted_at").eq("id", property.organization_id).maybeSingle(),
+    ]);
+    if (member && organization?.status === "active" && !organization.deleted_at) return;
+  }
+  throw new PermanentJobError("Keine Berechtigung mehr für diese Immobilie.");
+}
+
 async function executeJob(job: JobRow): Promise<JobRow> {
   const handler = JOB_HANDLERS[job.job_type];
   if (!handler) {
     return finishJob(job, { ok: false, error: new PermanentJobError(`Kein Handler für ${job.job_type}`) });
   }
+  const admin = createAdminClient();
   try {
-    const result = await handler({ job, admin: createAdminClient() });
+    await assertJobStillAllowed(admin, job);
+    const result = await handler({ job, admin });
     return finishJob(job, { ok: true, result });
   } catch (error) {
     return finishJob(job, { ok: false, error });

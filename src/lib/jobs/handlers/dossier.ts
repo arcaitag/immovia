@@ -13,6 +13,7 @@ import { flushEmailOutbox } from "@/lib/email/outbox";
 import type { AdminSupabaseClient } from "@/lib/supabase/admin";
 import { buildDossierContent } from "@/services/ai/dossier-data";
 import { loadAiSettings } from "@/services/ai/settings";
+import { dossierStoragePath } from "@/lib/storage";
 
 /**
  * Job «dossier_pdf»: Verkaufsdossier erzeugen, in Storage speichern
@@ -70,7 +71,7 @@ export const dossierJobHandler: JobHandler = async ({ job, admin }) => {
 
   try {
     const { buffer, pageCount } = await renderPdf(createElement(DossierDocument, { content: built.content }));
-    const storagePath = `${propertyId}/${dossier.id}.pdf`;
+    const storagePath = dossierStoragePath(propertyId, dossier.id);
     const { error: uploadError } = await admin.storage
       .from("dossiers")
       .upload(storagePath, buffer, { contentType: "application/pdf", upsert: true, cacheControl: "3600" });

@@ -30,7 +30,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     .maybeSingle();
   if (!job) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404, headers: NO_STORE });
 
-  if (job.status === "queued" && job.user_id === user.id && new Date(job.run_after).getTime() <= Date.now() && isServiceRoleConfigured()) {
+  if (
+    job.status === "queued" &&
+    job.user_id === user.id &&
+    user.profile.status === "active" &&
+    new Date(job.run_after).getTime() <= Date.now() &&
+    isServiceRoleConfigured()
+  ) {
     after(async () => {
       try {
         await runJobNow(job.id);

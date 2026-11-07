@@ -238,12 +238,23 @@ export class AnthropicProvider implements AiProvider {
       }
     })();
 
-    const final = active.finalMessage().then((message): AiTextResult => {
-      if (message.stop_reason === "refusal") {
-        throw Object.assign(new AiOutputError("Die KI hat die Anfrage abgelehnt."), { usage: toUsage(message), model: message.model });
-      }
-      return { text: toSwissSpelling(extractText(message)), model: message.model, usage: toUsage(message), attempts };
-    });
+    const final = active.finalMessage().then(
+      (message): AiTextResult => {
+        if (message.stop_reason === "refusal") {
+          throw Object.assign(new AiOutputError("Die KI hat die Anfrage abgelehnt."), { usage: toUsage(message), model: message.model });
+        }
+        return { text: toSwissSpelling(extractText(message)), model: message.model, usage: toUsage(message), attempts };
+      },
+      (error: unknown) => {
+        // Abbruch oder Fehler mitten im Stream: bisher angefallenen Verbrauch mitgeben (Kontingent, Kosten)
+        const mapped = mapAnthropicError(error);
+        const snapshot = active.currentMessage;
+        if (snapshot && mapped && typeof mapped === "object" && !("usage" in mapped)) {
+          Object.assign(mapped, { usage: toUsage(snapshot), model: snapshot.model });
+        }
+        throw mapped;
+      },
+    );
     // Verhindert «unhandled rejection», falls der Aufrufer final nicht abwartet
     final.catch(() => undefined);
 

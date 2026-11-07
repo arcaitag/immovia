@@ -5,20 +5,26 @@ import { createAdminClient, isServiceRoleConfigured } from "@/lib/supabase/admin
 import { isSupabaseConfigured, serverEnv } from "@/lib/env";
 import { TIME_ZONE } from "@/lib/format";
 import { isUuid } from "@/lib/utils";
+import { signVisitorId, verifyVisitorCookie } from "@/lib/analytics/visitor";
 
 /**
  * POST /api/listings/[listingId]/view – zählt einen Inseratsaufruf (datenschutzfreundlich).
  *
  * - Bots, Vorab-Ladevorgänge und fremde Websites werden ignoriert.
- * - Besucherkennung: zufällige ID im First-Party-Cookie «iv_vid» (httpOnly, 1 Jahr).
+ * - Besucherkennung: zufällige ID im First-Party-Cookie «iv_vid» (httpOnly, 1 Jahr), vom Server
+ *   signiert. Selbst erfundene Kennungen zählen nicht.
  * - Gespeichert wird nur sha256(ID + Datum in Europe/Zurich + Salt): pro Besucher und Tag
  *   höchstens ein Aufruf, ohne IP-Adresse und ohne tagesübergreifende Verknüpfung.
+ * - Neue Kennungen (Aufruf ohne gültiges Cookie) sind pro IP begrenzt; dafür wird nur ein täglich
+ *   wechselnder Hashwert der IP im Rate-Limit-Zähler gehalten (nach zwei Tagen gelöscht).
  * - Aufrufe der Inserentin bzw. des Inserenten und von Teammitgliedern zählen nicht.
  * - Ohne Service Role (SUPABASE_SECRET_KEY) antwortet die Route mit 204, ohne zu zählen.
  */
 
 const VISITOR_COOKIE = "iv_vid";
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
+/** Neue Besucherkennungen pro IP und Stunde (Schutz vor künstlich erhöhten Aufrufzahlen) */
+const NEW_VISITORS_PER_IP_HOUR = 30;
 const BOT_PATTERN =
   /bot|crawl|spider|slurp|preview|headless|lighthouse|pagespeed|gtmetrix|curl|wget|python|httpclient|okhttp|java\/|go-http|axios|node-fetch|facebookexternalhit|embedly|whatsapp|telegram|discord|monitor|uptime|scanner/i;
 
@@ -40,6 +46,25 @@ function isIgnoredRequest(request: NextRequest): boolean {
   const origin = request.headers.get("origin");
   if (origin && origin !== request.nextUrl.origin) return true;
   return false;
+}
+
+function clientIp(request: NextRequest): string {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || request.headers.get("x-real-ip")?.trim() || "unbekannt";
+}
+
+/** Begrenzt neue Besucherkennungen pro IP; bei einem Fehler der Datenbank wird gezählt (nur Statistik). */
+async function allowNewVisitor(request: NextRequest): Promise<boolean> {
+  const ipHash = createHash("sha256").update(`ip:${clientIp(request)}:${zurichDate()}:${serverEnv.analyticsSalt}`).digest("hex").slice(0, 32);
+  const { data, error } = await createAdminClient().rpc("check_rate_limit", {
+    p_key: `listing-view-new:${ipHash}`,
+    p_limit: NEW_VISITORS_PER_IP_HOUR,
+    p_window_seconds: 3600,
+  });
+  if (error) {
+    console.error("[statistik] Rate Limit nicht prüfbar", error.message);
+    return true;
+  }
+  return data !== false;
 }
 
 /** Prüft, ob die angemeldete Person das Inserat verwaltet (Inhaber oder Mitglied der Organisation). */
@@ -79,8 +104,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ li
   const viewer = await viewerContext(listingId);
   if (viewer.managesListing || !viewer.listingVisible) return noContent();
 
-  const existing = request.cookies.get(VISITOR_COOKIE)?.value;
-  const visitorId = existing && isUuid(existing) ? existing : randomUUID();
+  const existing = verifyVisitorCookie(request.cookies.get(VISITOR_COOKIE)?.value, serverEnv.analyticsSalt);
+  if (!existing && !(await allowNewVisitor(request))) return noContent();
+  const visitorId = existing ?? randomUUID();
   const viewerHash = createHash("sha256").update(`${visitorId}${zurichDate()}${serverEnv.analyticsSalt}`).digest("hex");
 
   try {
@@ -98,7 +124,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ li
   if (visitorId !== existing) {
     response.cookies.set({
       name: VISITOR_COOKIE,
-      value: visitorId,
+      value: signVisitorId(visitorId, serverEnv.analyticsSalt),
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",

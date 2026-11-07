@@ -36,3 +36,11 @@ export function imageVariantUrl(prefix: string | null | undefined, size: ImageSi
   if (!prefix) return null;
   return publicStorageUrl("property-images", `${prefix}-${size}.webp`);
 }
+
+/**
+ * Speicherort eines generierten Dossiers (Bucket «dossiers»). Downloads prüfen den Pfad gegen diese
+ * Vorgabe, damit ein Datensatz nicht auf die Datei einer anderen Immobilie zeigen kann.
+ */
+export function dossierStoragePath(propertyId: string, dossierId: string): string {
+  return `${propertyId}/${dossierId}.pdf`;
+}

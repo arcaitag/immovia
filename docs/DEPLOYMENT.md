@@ -7,7 +7,7 @@ Diese Anleitung beschreibt die Einrichtung von Immovia in einer neuen Umgebung. 
 | Teil | Stand |
 |---|---|
 | GitHub | `arcaitag/immovia`; Entwicklung auf `develop` (Preview-Deployments), Produktion = `main` |
-| Supabase | Projekt `immovia` (Ref `wlvhzhphpyvlqkafskwf`, Zürich, PostgreSQL 17). Alle Migrationen bis `20261107100000` eingespielt und per `scripts/schema-fingerprint.sql` gegen die lokal getestete Datenbank geprüft. Keine Demo-Daten. |
+| Supabase | Projekt `immovia` (Ref `wlvhzhphpyvlqkafskwf`, Zürich, PostgreSQL 17). Alle Migrationen bis `20261107110000` eingespielt und per `scripts/schema-fingerprint.sql` gegen die lokal getestete Datenbank geprüft. Keine Demo-Daten. |
 | Vercel | Projekt `immovia` (Team arcaitag), mit dem Repository verbunden. Produktionsdomain `immovia-olive.vercel.app`, derzeit durch **Vercel Authentication** geschützt (nur Team-Mitglieder). Produktion = `main` auf dem aktuellen Stand, Umgebungsvariablen für «Production» gesetzt. Previews von `develop` haben keine Umgebungsvariablen (siehe 3.2 und `docs/FORTSCHRITT.md`). |
 
 ### Migrationshistorie und Supabase CLI
@@ -20,7 +20,8 @@ supabase migration list                     # zeigt die abweichenden Remote-Vers
 supabase migration repair --status reverted <alle Remote-Versionen aus der Liste>
 supabase migration repair --status applied 20261106100000 20261106100100 20261106100200 20261106100300 \
   20261106100400 20261106100500 20261106100600 20261106100700 20261106100800 20261106100900 \
-  20261106220000 20261106240000 20261106250000 20261106260000 20261106900000 20261107100000
+  20261106220000 20261106240000 20261106250000 20261106260000 20261106900000 20261107100000 \
+  20261107110000
 ```
 
 ## 1. Supabase
