@@ -168,9 +168,14 @@ export function DashboardShell({ user, children }: { user: ShellUser; children: 
         </main>
       </div>
 
+      {/*
+        Tab-Leiste nur in der installierten App. Im mobilen Browser kollidiert eine fixierte Leiste am
+        unteren Rand mit der Browserleiste (Safari ab iOS 26 legt sie darüber und verschiebt sie beim
+        Scrollen); dort führt das Menü oben links durch das Dashboard.
+      */}
       <nav
         aria-label="Schnellnavigation"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 hidden border-t border-border bg-white pb-[env(safe-area-inset-bottom)] standalone:max-lg:block"
       >
         <ul className="grid grid-cols-5">
           {MOBILE_TABS.map((item) => {

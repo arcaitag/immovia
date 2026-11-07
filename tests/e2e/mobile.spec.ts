@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { expectNoHorizontalScroll } from "./helpers";
+import { createTestUser, deleteTestUsers, expectNoHorizontalScroll, login, type TestUser } from "./helpers";
 
 /**
  * Mobile Darstellung (Projekt «mobile», Pixel 7). Zusätzlich wird die in docs/CONVENTIONS.md
@@ -91,6 +91,33 @@ test.describe("Mobile Ansicht @mobile", () => {
     await expect(page).toHaveURL(/\/mieten$/);
     await expect(sheet).toBeVisible();
     await expect(sheet.getByRole("group", { name: "Angebotsart", exact: true }).getByRole("button", { name: "Mieten" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  /*
+   * Im mobilen Browser keine fixierte Leiste am unteren Rand (kollidiert mit der Browserleiste, v. a.
+   * Safari ab iOS 26). Die Tab-Leiste erscheint nur in der installierten App (display-mode: standalone).
+   */
+  test.describe("Dashboard", () => {
+    let user: TestUser | undefined;
+    test.beforeAll(async () => {
+      user = await createTestUser("e2e-mobil", { first: "Mara", last: "Mobil" });
+    });
+    test.afterAll(async () => {
+      await deleteTestUsers([user]);
+    });
+
+    test("ohne Leiste am unteren Rand, Navigation über das Menü @mobile", async ({ page }) => {
+      await login(page, user!, "/dashboard/besichtigungen");
+      await expect(page.getByRole("heading", { level: 1, name: "Besichtigungen" })).toBeVisible();
+      await expect(page.getByRole("navigation", { name: "Schnellnavigation" })).toBeHidden();
+      await expectNoHorizontalScroll(page);
+
+      await page.getByRole("button", { name: "Navigation öffnen" }).click();
+      const nav = page.getByRole("dialog").getByRole("navigation", { name: "Dashboard-Navigation" });
+      await nav.getByRole("link", { name: "Nachrichten" }).click();
+      await expect(page).toHaveURL(/\/dashboard\/nachrichten$/);
+      await expect(page.getByRole("dialog")).toBeHidden();
+    });
   });
 
   test("mobiles Menü öffnen, navigieren und schliessen @mobile", async ({ page }) => {

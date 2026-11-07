@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Als App installiert (Home-Bildschirm): keine Browserleisten am unteren Rand */
+@custom-variant standalone (@media (display-mode: standalone));
+
 /* =============================================================================
    Immovia Design Tokens
    Markenfarben gemäss Gestaltungsvorgabe. --primary ist minimal dunkler als das

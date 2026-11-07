@@ -63,6 +63,7 @@ import { ReportDialog, type ReportTarget } from "@/components/chat/report-dialog
 import { LeadStatusSelect } from "@/components/leads/lead-status-select";
 import { ViewingBookingDialog } from "@/components/viewings/viewing-booking-dialog";
 import { archiveConversationAction, blockUserAction, sendMessageAction } from "@/app/dashboard/nachrichten/actions";
+import { CHAT_PANEL_CLASS } from "@/components/chat/layout";
 
 type MessageRow = Tables<"messages">;
 type ParticipantRow = Tables<"conversation_participants">;
@@ -323,7 +324,7 @@ export function ChatView({ view, userId }: { view: ConversationView; userId: str
   const listingHref = view.listing?.isPublic && view.listing.slug ? `/immobilien/${view.listing.slug}` : null;
 
   return (
-    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] top-16 z-10 flex flex-col bg-card lg:static lg:inset-auto lg:z-auto lg:min-h-0 lg:flex-1">
+    <div className={CHAT_PANEL_CLASS}>
       <header className="flex items-center gap-3 border-b border-border px-2 py-2.5 sm:px-4">
         <Button asChild variant="ghost" size="icon" className="size-11 lg:hidden">
           <Link href="/dashboard/nachrichten" aria-label="Zurück zu allen Konversationen">

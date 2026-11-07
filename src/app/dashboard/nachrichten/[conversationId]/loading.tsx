@@ -1,8 +1,9 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { CHAT_PANEL_CLASS } from "@/components/chat/layout";
 
 export default function ConversationLoading() {
   return (
-    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] top-16 z-10 flex flex-col bg-card lg:static lg:inset-auto lg:z-auto lg:min-h-0 lg:flex-1">
+    <div className={CHAT_PANEL_CLASS}>
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
         <Skeleton className="size-10 rounded-full" />
         <div className="flex-1 space-y-2">
