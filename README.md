@@ -32,7 +32,7 @@ src/app            Routen: öffentlich (site), Auth, Dashboard, Admin, API
 src/components     ui/ = Designsystem; Fachkomponenten je Bereich
 src/lib            Supabase, Auth, KI, Bewertung, Bilder, PDF, E-Mail, Jobs, Geodaten, Validierung
 src/services       Geschäftslogik (nur Server)
-supabase/          Migrationen, Demo-Seed, E-Mail-Vorlagen
+supabase/          Migrationen, Demo-Seed, E-Mail-Vorlagen, CLI-Konfiguration (config.toml)
 tests/             unit, db (RLS/Abläufe), e2e
 docs/              Architektur, Regeln, Deployment, Fortschritt
 ```
@@ -43,4 +43,5 @@ docs/              Architektur, Regeln, Deployment, Fortschritt
 - `docs/CONVENTIONS.md` – verbindliche Entwicklungsregeln
 - `docs/DEPLOYMENT.md` – Supabase, GitHub, Vercel, Domain, Kosten
 - `docs/EMAIL.md` – E-Mail-Versand und Auth-Vorlagen
-- `docs/FORTSCHRITT.md` – Umsetzungsstand und offene Punkte
+- `docs/TESTS.md` – Teststrategie, lokale Testumgebung, E2E-Szenarien
+- `docs/FORTSCHRITT.md` – Umsetzungsstand, offene Schritte und bekannte Grenzen

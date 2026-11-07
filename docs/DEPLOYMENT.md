@@ -2,13 +2,13 @@
 
 Diese Anleitung beschreibt die Einrichtung von Immovia in einer neuen Umgebung. Für die Produktion gilt: Demo-Daten nie einspielen, alle Schlüssel nur als Umgebungsvariablen.
 
-## 0. Aktueller Stand der Immovia-Umgebung
+## 0. Aktueller Stand der Immovia-Umgebung (7. November 2026)
 
 | Teil | Stand |
 |---|---|
 | GitHub | `arcaitag/immovia`; Entwicklung auf `develop` (Preview-Deployments), Produktion = `main` |
-| Supabase | Projekt `immovia` (Ref `wlvhzhphpyvlqkafskwf`, Zürich, PostgreSQL 17). Alle Migrationen eingespielt und per `scripts/schema-fingerprint.sql` gegen die lokal getestete Datenbank geprüft. **Offen:** das Entfernen der zwei leeren Spalten `listings.contact_email`/`contact_phone` (siehe unten, braucht eine Bestätigung im Dashboard). Keine Demo-Daten. |
-| Vercel | Projekt `immovia` (Team arcaitag), mit dem Repository verbunden. Produktionsdomain `immovia-olive.vercel.app`, derzeit durch **Vercel Authentication** geschützt (nur Team-Mitglieder). Umgebungsvariablen müssen im Dashboard gesetzt werden (siehe 3.2). |
+| Supabase | Projekt `immovia` (Ref `wlvhzhphpyvlqkafskwf`, Zürich, PostgreSQL 17). Alle Migrationen bis `20261107100000` eingespielt und per `scripts/schema-fingerprint.sql` gegen die lokal getestete Datenbank geprüft. **Offen:** das Entfernen der zwei leeren Spalten `listings.contact_email`/`contact_phone` (siehe unten, braucht eine Bestätigung im Dashboard). Keine Demo-Daten. |
+| Vercel | Projekt `immovia` (Team arcaitag), mit dem Repository verbunden. Produktionsdomain `immovia-olive.vercel.app`, derzeit durch **Vercel Authentication** geschützt (nur Team-Mitglieder). Die Produktion steht noch auf einem frühen Stand von `main`; der aktuelle Code liegt auf `develop`. Umgebungsvariablen fehlen noch und müssen im Dashboard gesetzt werden (siehe 3.2). |
 
 ### Noch auszuführen (Supabase SQL Editor)
 
@@ -27,14 +27,14 @@ supabase migration list                     # zeigt die abweichenden Remote-Vers
 supabase migration repair --status reverted <alle Remote-Versionen aus der Liste>
 supabase migration repair --status applied 20261106100000 20261106100100 20261106100200 20261106100300 \
   20261106100400 20261106100500 20261106100600 20261106100700 20261106100800 20261106100900 \
-  20261106220000 20261106240000 20261106250000 20261106260000 20261106900000
+  20261106220000 20261106240000 20261106250000 20261106260000 20261106900000 20261107100000
 ```
 
 ## 1. Supabase
 
 1. **Projekt anlegen**: Region **Zürich (eu-central-2)**, starkes Datenbankpasswort.
 2. **Migrationen einspielen** (Reihenfolge = Dateiname):
-   - mit der Supabase CLI: `supabase link --project-ref <ref>` und `supabase db push`
+   - mit der Supabase CLI: `supabase link --project-ref <ref>` und `supabase db push` (Konfiguration in `supabase/config.toml`; `supabase start` startet dieselbe Umgebung lokal inkl. Demo-Daten)
    - oder im SQL Editor jede Datei aus `supabase/migrations/` nacheinander ausführen.
    Die Migrationen legen Tabellen, RLS, Funktionen, Storage-Buckets inkl. Policies und die Realtime-Publikation an.
 3. **Auth → URL Configuration**
