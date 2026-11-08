@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { HeroSearch } from "@/components/home/hero-search";
-import { UnderlineSwoosh } from "@/components/home/underline-swoosh";
+import { HeroHeadline } from "@/components/home/hero-headline";
 import { ListingCard } from "@/components/property/listing-card";
 import { getLatestListings } from "@/lib/listings/queries";
 import { EXAMPLE_LISTINGS } from "@/lib/listings/examples";
@@ -72,19 +72,16 @@ export default async function HomePage() {
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/45 to-transparent" />
         </div>
         <div className="container-page pb-8 pt-8 sm:pb-10 sm:pt-12 lg:pb-12 lg:pt-14">
-          <div className="animate-fade-up">
-            <h1
-              id="hero-titel"
-              className="font-display text-[2.15rem] font-extrabold leading-[1.08] tracking-[-0.03em] text-foreground sm:text-5xl lg:text-[3.4rem]"
-            >
-              <span className="relative inline-block">
-                Finde
-                <UnderlineSwoosh className="absolute -bottom-2 left-0 h-3 w-[92%] text-brand" />
-              </span>{" "}
-              dein neues Zuhause.
-            </h1>
-            <p className="mt-4 text-lg text-foreground/80 sm:text-xl">Immobilien kaufen, mieten oder kostenlos verkaufen.</p>
-          </div>
+          <HeroHeadline
+            id="hero-titel"
+            className="font-display text-[2.15rem] font-extrabold leading-[1.08] tracking-[-0.03em] text-foreground sm:text-5xl lg:text-[3.1rem]"
+          />
+          {/* Zeilenumbruch nach dem ersten Satz: bleibt auf Tablets links vom Haus im Bild */}
+          <p className="mt-5 animate-fade-up text-balance text-lg text-foreground/80 [animation-delay:0.45s] motion-reduce:[animation-delay:0s] sm:text-xl">
+            Entdecke, bewerte und vermarkte Immobilien.
+            <br />
+            Alles auf einer Plattform.
+          </p>
           <div className="mt-6 sm:mt-8">
             <HeroSearch />
           </div>

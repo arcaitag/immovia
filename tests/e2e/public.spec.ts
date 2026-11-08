@@ -3,8 +3,9 @@ import { expect, test } from "@playwright/test";
 test.describe("Öffentliche Seiten", () => {
   test("Startseite zeigt Suche zuerst, Angebote direkt darunter @mobile", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Finde dein neues Zuhause.");
-    await expect(page.getByText("Immobilien kaufen, mieten oder kostenlos verkaufen.")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Immobilien. Einfach. Digital.");
+    await expect(page.getByText("Entdecke, bewerte und vermarkte Immobilien.")).toBeVisible();
+    await expect(page.getByText("Alles auf einer Plattform.")).toBeVisible();
     await expect(page.getByRole("search", { name: "Immobilien suchen" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Kaufen" })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("button", { name: "Immobilien suchen", exact: true })).toBeInViewport();
