@@ -8,6 +8,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "rea
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { Badge, Button, EmptyState, Loading, Notice } from "@/components/ui";
 import { myProperties, type MyProperty } from "@/lib/api";
+import { ownerBadges } from "@/lib/api-owner";
 import { useAuth } from "@/lib/auth";
 import { formatPrice, formatRooms, imageUrl } from "@/lib/format";
 import { LISTING_STATUS, PROPERTY_TYPES, errorMessage } from "@/lib/labels";
@@ -25,10 +26,22 @@ export default function MyPropertiesScreen() {
   const router = useRouter();
   const query = useQuery({ queryKey: ["my-properties", userId], queryFn: () => myProperties(userId!), enabled: Boolean(userId) });
   const refetch = query.refetch;
+  // Neue Anfragen und offene Besichtigungsanfragen je Inserat – Zusatzinfo, die Liste funktioniert auch ohne
+  const listingIds = (query.data ?? []).map((item) => item.listing?.id).filter((id): id is string => Boolean(id));
+  const badges = useQuery({
+    queryKey: ["owner-badges", "list", listingIds.join(",")],
+    queryFn: () => ownerBadges(listingIds),
+    enabled: listingIds.length > 0,
+    retry: false,
+  });
+  const refetchBadges = badges.refetch;
+  const hasListings = listingIds.length > 0;
   useFocusEffect(
     React.useCallback(() => {
-      if (userId) refetch();
-    }, [userId, refetch]),
+      if (!userId) return;
+      refetch();
+      if (hasListings) refetchBadges();
+    }, [userId, refetch, refetchBadges, hasListings]),
   );
 
   if (loading) return <Loading />;
@@ -48,10 +61,15 @@ export default function MyPropertiesScreen() {
       renderItem={({ item }) => {
         const cover = imageUrl(item.cover, "sm");
         const status = item.listing ? LISTING_STATUS[item.listing.status] : null;
+        const badge = item.listing ? badges.data?.[item.listing.id] : undefined;
+        const hints = [
+          badge?.newLeads ? (badge.newLeads === 1 ? "1 neue Anfrage" : `${badge.newLeads} neue Anfragen`) : null,
+          badge?.openRequests ? (badge.openRequests === 1 ? "1 Besichtigungsanfrage" : `${badge.openRequests} Besichtigungsanfragen`) : null,
+        ].filter((hint): hint is string => hint !== null);
         return (
           <Pressable
             accessibilityRole="link"
-            accessibilityLabel={`${displayName(item)}${status ? `, ${status.label}` : ""}`}
+            accessibilityLabel={[displayName(item), status?.label, ...hints].filter(Boolean).join(", ")}
             onPress={() => router.push({ pathname: "/objekt/[id]", params: { id: item.property.id } })}
             style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.mint100 }]}
           >
@@ -67,6 +85,13 @@ export default function MyPropertiesScreen() {
                 {item.listing && (item.listing.price !== null || item.listing.price_on_request) ? formatPrice(item.listing) : "Noch kein Preis"} ·{" "}
                 {item.imageCount === 1 ? "1 Foto" : `${item.imageCount} Fotos`}
               </Text>
+              {hints.length > 0 ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  {hints.map((hint) => (
+                    <Badge key={hint} label={hint} tone="green" />
+                  ))}
+                </View>
+              ) : null}
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.muted} />
           </Pressable>
