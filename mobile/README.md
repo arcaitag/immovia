@@ -3,16 +3,27 @@
 Native App für iPhone und Android. Sie nutzt dasselbe Backend wie die Website (Supabase mit Row
 Level Security) und dieselben Konten.
 
-## Umfang der ersten Version
+## Umfang
 
-- Suchen mit Filtern, Inserat ansehen, teilen
-- Merkliste
-- Anmelden, Konto erstellen
-- Anbieter kontaktieren, Nachrichten
-- Eigene Immobilien: erfassen, Fotos aufnehmen oder wählen, Preis und Texte, veröffentlichen, pausieren
+- Suchen mit Filtern, Suche speichern (Suchaufträge), Inserat ansehen, teilen, melden
+- Merkliste, Anfragen und Nachrichten, Besichtigungstermin buchen
+- Konto: anmelden, registrieren, Profil, Passwort, Einwilligungen, Benachrichtigungen
+- Eigene Immobilien: erfassen, alle wichtigen Objekt- und Inseratsangaben, Fotos (Titelbild,
+  Reihenfolge, Grundriss, Bildunterschrift), Status (veröffentlichen, pausieren, reservieren,
+  verkauft/vermietet, archivieren), löschen
+- Werkzeuge pro Immobilie: Statistik, Interessenten, Besichtigungen, Dokumente, Bewertung,
+  KI-Texte, Verkaufsdossier, Bilderstudio (Optimierung, KI-Designvorschläge mit Prüfung)
+- KI-Assistent
 
-Bewertung, Verkaufsdossier, KI-Texte, Bilderstudio, Besichtigungen und Firmenkonto bleiben vorerst
-auf der Website.
+Auf der Website bleiben: Firmenkonto, Administration, Dokument-Upload, Serien-Zeitfenster,
+einzelne Regler im Bilderstudio, Konto löschen und Datenexport.
+
+## Schnittstellen der Website für die App
+
+Wo die Website den Server braucht (Hintergrundaufträge, Bildverarbeitung, KI, PDF), ruft die App
+`/api/mobile/*` auf (`images`, `valuation`, `description`, `dossier`, `studio/*`) sowie
+`/api/jobs/{id}` und `/api/assistant`. Anmeldung mit `Authorization: Bearer <Supabase-Token>`;
+die Routen rufen dieselben Dienste auf wie die Website.
 
 ## Auf dem iPhone testen (Expo Go)
 
