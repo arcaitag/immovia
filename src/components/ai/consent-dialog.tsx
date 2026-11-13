@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
 import { grantAiConsentAction } from "@/components/ai/consent-actions";
+import type { ImageConsentInfo } from "@/lib/images/ai-providers/types";
 
-const POINTS = [
+const TEXT_POINTS = [
   {
     icon: FileText,
     title: "Welche Daten",
@@ -23,24 +24,54 @@ const POINTS = [
   { icon: Trash2, title: "Löschung", text: "Anthropic löscht die übermittelten Daten standardmässig innert 30 Tagen." },
 ] as const;
 
+function imagePoints(info: ImageConsentInfo) {
+  return [
+    {
+      icon: FileText,
+      title: "Welche Daten",
+      text: "Nur das ausgewählte Foto der Immobilie, ohne Standortdaten (GPS) und ohne Ihre Kontaktdaten.",
+    },
+    {
+      icon: Building2,
+      title: "An wen",
+      text: `Über das AI Gateway von Vercel (USA) an den Anbieter des Bildmodells: ${info.recipient}.`,
+    },
+    { icon: Ban, title: "Kein Training", text: "Wir verlangen bei jeder Anfrage, dass das Foto nicht zum Training von KI-Modellen verwendet wird." },
+    {
+      icon: Trash2,
+      title: "Löschung",
+      text: info.noRetention
+        ? "Wir verlangen zudem, dass der Anbieter das Foto nach der Bearbeitung nicht speichert. Das Ergebnis speichern nur wir, als neues Bild in Ihrem Konto."
+        : "Die Aufbewahrung beim Anbieter richtet sich nach dessen Bedingungen. Das Ergebnis speichern wir als neues Bild in Ihrem Konto.",
+    },
+  ];
+}
+
 /**
  * Einwilligungsdialog vor der ersten KI-Nutzung. «Zustimmen und fortfahren» speichert die
  * Einwilligung per Server Action und löst danach die ursprüngliche Aktion erneut aus.
+ * kind = "image": eigene Einwilligung für die Bild-KI (Fotos gehen an einen anderen Anbieter).
  */
 export function AiConsentDialog({
   open,
   onOpenChange,
   onConsented,
+  kind = "text",
+  imageInfo,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConsented: () => void;
+  kind?: "text" | "image";
+  imageInfo?: ImageConsentInfo;
 }) {
   const [pending, startTransition] = React.useTransition();
+  const isImage = kind === "image";
+  const points = isImage ? imagePoints(imageInfo ?? { recipient: "den Bild-KI-Anbieter", noRetention: false }) : TEXT_POINTS;
 
   function agree() {
     startTransition(async () => {
-      const res = await grantAiConsentAction();
+      const res = await grantAiConsentAction(kind);
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -57,14 +88,15 @@ export function AiConsentDialog({
           <span className="mb-1 flex size-10 items-center justify-center rounded-xl bg-mint-100 text-forest">
             <ShieldCheck className="size-5" aria-hidden />
           </span>
-          <DialogTitle>KI-Verarbeitung erlauben?</DialogTitle>
+          <DialogTitle>{isImage ? "Foto an die Bild-KI senden?" : "KI-Verarbeitung erlauben?"}</DialogTitle>
           <DialogDescription>
-            Für diese Funktion senden wir Angaben an einen KI-Dienst. Ohne Ihre Einwilligung geschieht das nicht – alle anderen Funktionen bleiben
-            nutzbar.
+            {isImage
+              ? "Für einen Designvorschlag senden wir das Foto an einen Bild-KI-Dienst. Ohne Ihre Einwilligung geschieht das nicht – alle anderen Funktionen bleiben nutzbar."
+              : "Für diese Funktion senden wir Angaben an einen KI-Dienst. Ohne Ihre Einwilligung geschieht das nicht – alle anderen Funktionen bleiben nutzbar."}
           </DialogDescription>
         </DialogHeader>
         <dl className="grid gap-3">
-          {POINTS.map((point) => (
+          {points.map((point) => (
             <div key={point.title} className="flex gap-3 rounded-xl border border-border bg-surface p-3">
               <point.icon className="mt-0.5 size-4 shrink-0 text-forest" aria-hidden />
               <div className="grid gap-0.5 text-sm">

@@ -114,7 +114,17 @@ export function SortableImageCard({
             draggable={false}
           />
         ) : null}
-        {!ready ? (
+        {image.status === "review" ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/75 p-3 text-center text-sm font-medium text-forest">
+            <span>KI-Vorschlag, noch nicht öffentlich</span>
+            <Link
+              href={`/dashboard/bilderstudio/${image.id}`}
+              className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 font-semibold text-primary-foreground hover:bg-primary-hover"
+            >
+              Prüfen und freigeben
+            </Link>
+          </div>
+        ) : !ready ? (
           <div className="absolute inset-0 flex items-center justify-center bg-white/70 text-sm font-medium text-forest">
             {image.status === "failed" ? (
               "Verarbeitung fehlgeschlagen"

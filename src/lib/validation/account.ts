@@ -143,6 +143,7 @@ export const DEFAULT_OFFER_OPTIONS = [
 
 export const preferencesSchema = z.object({
   ai_processing_consent: z.boolean(),
+  ai_image_consent: z.boolean(),
   analytics_consent: z.boolean(),
   marketing_consent: z.boolean(),
   default_offer_type: z

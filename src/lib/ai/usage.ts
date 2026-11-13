@@ -28,12 +28,19 @@ export interface UsageEventInput {
   model?: string | null;
   usage?: TokenUsage;
   imageCount?: number;
+  /** Geschätzte Kosten, falls nicht aus Tokens berechenbar (z. B. Bildmodelle mit Preis pro Bild) */
+  costUsd?: number;
   success: boolean;
 }
 
 async function usageRow(admin: AdminSupabaseClient, input: UsageEventInput) {
   const usage = input.usage ?? { inputTokens: 0, outputTokens: 0 };
-  const cost = input.model && input.usage ? estimateCostUsd(input.model, usage, await pricingOverrides(admin)) : 0;
+  const cost =
+    input.costUsd !== undefined
+      ? Math.max(0, input.costUsd)
+      : input.model && input.usage
+        ? estimateCostUsd(input.model, usage, await pricingOverrides(admin))
+        : 0;
   return {
     user_id: input.userId,
     job_id: input.jobId ?? null,

@@ -7,6 +7,14 @@ import type { Enums, Json } from "@/types/database";
 export const AI_CONSENT_REQUIRED_MESSAGE =
   "Für diese KI-Funktion braucht es Ihre Einwilligung zur Datenverarbeitung durch unseren KI-Anbieter.";
 
+/** Wie oben, für die Bild-KI (eigene Einwilligung, weil Fotos an einen anderen Anbieter gehen). */
+export const AI_IMAGE_CONSENT_REQUIRED_MESSAGE =
+  "Für die Bild-KI braucht es Ihre Einwilligung, dass das Foto an den Bild-KI-Anbieter übermittelt wird.";
+
+export function isConsentRequiredMessage(message: string | null | undefined): boolean {
+  return message === AI_CONSENT_REQUIRED_MESSAGE || message === AI_IMAGE_CONSENT_REQUIRED_MESSAGE;
+}
+
 /** Antwort von GET /api/jobs/[jobId] (auch im Browser verwendet). */
 export interface JobStatusDto {
   id: string;

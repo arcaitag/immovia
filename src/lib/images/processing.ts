@@ -195,6 +195,41 @@ export async function cropImage(
   return sharp(rotated).extract({ left, top, width, height }).jpeg({ quality: 95 }).toBuffer();
 }
 
+/**
+ * Vorlage für die Bild-KI: automatisch gedreht, höchstens maxSize Pixel, JPEG ohne Metadaten
+ * (kein EXIF, keine GPS-Koordinaten). Liefert die Masse für den späteren Abgleich.
+ */
+export async function prepareForImageAi(input: Buffer, maxSize = 2048): Promise<{ buffer: Buffer; width: number; height: number }> {
+  const { data, info } = await sharp(input, { failOn: "error" })
+    .rotate()
+    .resize({ width: maxSize, height: maxSize, fit: "inside", withoutEnlargement: true })
+    .flatten({ background: "#ffffff" })
+    .toColourspace("srgb")
+    .jpeg({ quality: 90 })
+    .toBuffer({ resolveWithObject: true });
+  return { buffer: data, width: info.width, height: info.height };
+}
+
+/** Grösste Fläche mit dem Seitenverhältnis ratio (Breite/Höhe), die in out passt (mittiger Zuschnitt). */
+export function aspectFitSize(out: { width: number; height: number }, ratio: number): { width: number; height: number } {
+  const outRatio = out.width / out.height;
+  if (Math.abs(outRatio / ratio - 1) < 0.004) return { width: out.width, height: out.height };
+  if (outRatio > ratio) return { width: Math.max(1, Math.round(out.height * ratio)), height: out.height };
+  return { width: out.width, height: Math.max(1, Math.round(out.width / ratio)) };
+}
+
+/**
+ * Bringt ein Ergebnis der Bild-KI exakt auf das Seitenverhältnis der Vorlage (mittiger Zuschnitt,
+ * keine Vergrösserung). So liegen Vorher und Nachher im Vergleich deckungsgleich übereinander.
+ */
+export async function matchAspectRatio(output: Buffer, source: { width: number; height: number }): Promise<Buffer> {
+  const meta = await sharp(output, { failOn: "error" }).metadata();
+  if (!meta.width || !meta.height) throw new Error("Bildgrösse konnte nicht gelesen werden");
+  const target = aspectFitSize({ width: meta.width, height: meta.height }, source.width / source.height);
+  if (target.width === meta.width && target.height === meta.height) return output;
+  return sharp(output).resize(target.width, target.height, { fit: "cover", position: "centre" }).png().toBuffer();
+}
+
 /** Speicherpfade der Varianten: {prefix}-sm.webp usw. */
 export function variantPaths(prefix: string): Record<ImageVariant, string> {
   return { sm: `${prefix}-sm.webp`, md: `${prefix}-md.webp`, lg: `${prefix}-lg.webp` };

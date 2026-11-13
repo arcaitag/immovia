@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ImageIcon, ImageOff, Sparkles, Wand2 } from "lucide-react";
+import { ImageIcon, ImageOff, ScanEye, Sparkles, Wand2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -32,9 +32,9 @@ export default async function ImageStudioOverviewPage({
   const { data: images } = ids.length
     ? await supabase
         .from("property_images")
-        .select("id, property_id, display_path, external_url, is_enhanced, is_ai_visualization, is_floor_plan, is_cover, caption, sort_order")
+        .select("id, property_id, display_path, external_url, is_enhanced, is_ai_visualization, is_floor_plan, is_cover, caption, sort_order, status")
         .in("property_id", ids)
-        .eq("status", "ready")
+        .in("status", ["ready", "review"])
         .order("sort_order", { ascending: true })
         .limit(1000)
     : { data: null };
@@ -50,7 +50,7 @@ export default async function ImageStudioOverviewPage({
     <div className="grid gap-6">
       <PageHeader
         title="Bilderstudio"
-        description="Helligkeit, Kontrast, Farben und Ausrichtung Ihrer Bilder korrigieren – mit klassischer Bildverarbeitung, das Original bleibt immer erhalten."
+        description="Helligkeit, Kontrast, Farben und Ausrichtung korrigieren oder mit KI einen Designvorschlag erstellen. Das Original bleibt immer erhalten."
       />
 
       {overviews.length > 1 ? (
@@ -133,6 +133,11 @@ export default async function ImageStudioOverviewPage({
                           )}
                         </div>
                         <span className="flex min-h-6 flex-wrap gap-1 px-1">
+                          {image.status === "review" ? (
+                            <Badge tone="blue">
+                              <ScanEye aria-hidden /> Prüfung offen
+                            </Badge>
+                          ) : null}
                           {image.is_cover ? <Badge tone="green">Titelbild</Badge> : null}
                           {image.is_enhanced ? (
                             <Badge tone="blue">

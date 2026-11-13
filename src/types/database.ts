@@ -2633,6 +2633,7 @@ export type Database = {
           analytics_consent: boolean;
           marketing_consent: boolean;
           ai_processing_consent: boolean;
+          ai_image_consent: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -2643,6 +2644,7 @@ export type Database = {
           analytics_consent?: boolean;
           marketing_consent?: boolean;
           ai_processing_consent?: boolean;
+          ai_image_consent?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -2653,6 +2655,7 @@ export type Database = {
           analytics_consent?: boolean;
           marketing_consent?: boolean;
           ai_processing_consent?: boolean;
+          ai_image_consent?: boolean;
           created_at?: string;
           updated_at?: string;
         };

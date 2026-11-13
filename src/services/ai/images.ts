@@ -9,7 +9,8 @@ import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
 import { IMAGE_VARIANTS, processImage, suggestAdjustments, variantPaths, type Adjustments, type ImageVariant } from "@/lib/images/processing";
 import { getImageAiProvider } from "@/lib/images/ai-providers";
-import { STAGING_ROOM_TYPES, STAGING_STYLES } from "@/lib/images/ai-providers/types";
+import { STAGING_ROOM_TYPES, STAGING_STYLES, imageAiJobType } from "@/lib/images/ai-providers/types";
+import { deleteImage } from "@/services/property-images";
 import { logAiUsage } from "@/lib/ai/usage";
 import {
   assertAvailable,
@@ -43,6 +44,7 @@ export type AdjustmentsInput = z.infer<typeof adjustmentsSchema>;
 interface StudioImage extends ImageSourceRow {
   is_enhanced: boolean;
   is_ai_visualization: boolean;
+  status: string;
 }
 
 async function loadStudioImage(supabase: ServerSupabaseClient, user: SessionUser, imageId: string): Promise<StudioImage> {
@@ -50,7 +52,7 @@ async function loadStudioImage(supabase: ServerSupabaseClient, user: SessionUser
   if (!parsed.success) throw new AppError("not_found");
   const { data } = await supabase
     .from("property_images")
-    .select(`${IMAGE_SOURCE_COLUMNS}, is_enhanced, is_ai_visualization`)
+    .select(`${IMAGE_SOURCE_COLUMNS}, is_enhanced, is_ai_visualization, status`)
     .eq("id", imageId)
     .maybeSingle();
   if (!data) throw new AppError("not_found", "Das Bild wurde nicht gefunden.");
@@ -206,7 +208,7 @@ const styles = Object.keys(STAGING_STYLES) as [keyof typeof STAGING_STYLES, ...(
 
 export const imageAiRequestSchema = z.object({
   imageId: z.guid(),
-  capability: z.enum(["perspective", "virtual_staging"]),
+  capability: z.enum(["perspective", "virtual_staging", "declutter"]),
   roomType: z.enum(roomTypes).optional(),
   style: z.enum(styles).optional(),
 });
@@ -218,18 +220,21 @@ export async function requestImageAi(supabase: ServerSupabaseClient, user: Sessi
   const input = parsed.data;
   const image = await loadStudioImage(supabase, user, input.imageId);
   assertEditable(image);
+  if (image.status !== "ready") throw new AppError("invalid_state", "Das Bild ist noch nicht fertig verarbeitet.");
   if (!getImageAiProvider(input.capability)) {
     throw new AppError("service_unavailable", "Für diese Funktion ist kein Bild-KI-Anbieter eingerichtet.");
   }
+  const jobType = imageAiJobType(input.capability);
   const settings = await loadAiSettings();
   assertAvailable(
     await getFeatureAvailability({
       supabase,
       userId: user.id,
       flag: "image_ai",
-      quotaFeature: input.capability === "virtual_staging" ? "virtual_staging" : "image_enhance",
+      quotaFeature: jobType === "virtual_staging" ? "virtual_staging" : "image_enhance",
       requiresAi: false,
       requiresConsent: true,
+      consentKind: "image",
       settings,
     }),
   );
@@ -244,10 +249,74 @@ export async function requestImageAi(supabase: ServerSupabaseClient, user: Sessi
   await enforceRateLimit(`image-ai:${user.id}`, 5, 60);
   const job = await enqueueAndRun({
     userId: user.id,
-    type: input.capability === "virtual_staging" ? "virtual_staging" : "image_enhance",
+    type: jobType,
     propertyId: image.property_id,
     input: input as unknown as Json,
-    maxAttempts: 2,
+    // Fehler des Anbieters sind endgültig (der Anbieter wiederholt kurze Störungen selbst einmal)
+    maxAttempts: 1,
   });
   return { jobId: job.id };
+}
+
+interface ReviewImage {
+  id: string;
+  property_id: string;
+  base_path: string | null;
+  source_image_id: string | null;
+  status: string;
+  is_ai_visualization: boolean;
+}
+
+async function loadReviewImage(supabase: ServerSupabaseClient, user: SessionUser, imageId: string): Promise<ReviewImage> {
+  if (!z.guid().safeParse(imageId).success) throw new AppError("not_found");
+  const { data } = await supabase
+    .from("property_images")
+    .select("id, property_id, base_path, source_image_id, status, is_ai_visualization")
+    .eq("id", imageId)
+    .maybeSingle();
+  if (!data) throw new AppError("not_found", "Das Bild wurde nicht gefunden.");
+  await requireManagedProperty(supabase, user, data.property_id);
+  if (!data.is_ai_visualization || data.status !== "review") {
+    throw new AppError("invalid_state", "Dieses Bild wartet nicht auf eine Prüfung.");
+  }
+  return data;
+}
+
+async function setTransformationStatus(supabase: ServerSupabaseClient, image: ReviewImage, status: "accepted" | "discarded") {
+  if (!image.source_image_id || !image.base_path) return;
+  const { error } = await supabase
+    .from("image_transformations")
+    .update(status === "accepted" ? { status, accepted_at: new Date().toISOString() } : { status })
+    .eq("image_id", image.source_image_id)
+    .eq("output_path", image.base_path);
+  if (error) console.warn("[bild-ki] Verlauf konnte nicht aktualisiert werden", error.message);
+}
+
+const STUDIO_PATHS = (image: { id: string; property_id: string; source_image_id: string | null }) => [
+  "/dashboard/bilderstudio",
+  `/dashboard/bilderstudio/${image.id}`,
+  ...(image.source_image_id ? [`/dashboard/bilderstudio/${image.source_image_id}`] : []),
+  `/dashboard/immobilien/${image.property_id}/bilder`,
+];
+
+/**
+ * «Freigeben»: Der Inserent hat geprüft, dass Raum und feste Ausstattung dem Originalfoto
+ * entsprechen. Erst dann wird die KI-Visualisierung öffentlich (status = 'ready').
+ */
+export async function confirmAiVisualization(supabase: ServerSupabaseClient, user: SessionUser, imageId: string, confirmed: unknown): Promise<void> {
+  if (confirmed !== true) throw new AppError("validation", "Bitte bestätigen Sie, dass Sie den Vorschlag geprüft haben.");
+  const image = await loadReviewImage(supabase, user, imageId);
+  const { error } = await supabase.from("property_images").update({ status: "ready" }).eq("id", image.id).eq("status", "review");
+  if (error) throw fromDbError(error);
+  await setTransformationStatus(supabase, image, "accepted");
+  await revalidateProperty(supabase, image.property_id, STUDIO_PATHS(image));
+}
+
+/** «Verwerfen»: löscht den noch nicht freigegebenen Vorschlag samt Dateien. */
+export async function discardAiVisualization(supabase: ServerSupabaseClient, user: SessionUser, imageId: string): Promise<{ sourceImageId: string | null }> {
+  const image = await loadReviewImage(supabase, user, imageId);
+  await setTransformationStatus(supabase, image, "discarded");
+  await deleteImage(supabase, user, image.id);
+  await revalidateProperty(supabase, image.property_id, STUDIO_PATHS(image));
+  return { sourceImageId: image.source_image_id };
 }

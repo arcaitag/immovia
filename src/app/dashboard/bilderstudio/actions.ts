@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { runAiAction, type AiActionResult } from "@/services/ai/action";
 import {
   acceptImageEnhancement,
+  confirmAiVisualization,
+  discardAiVisualization,
   renderImagePreview,
   requestImageAi,
   restoreOriginalImage,
@@ -57,4 +59,23 @@ export async function requestImageAiAction(input: unknown): Promise<AiActionResu
     const supabase = await createClient();
     return requestImageAi(supabase, user, input);
   });
+}
+
+/** «Freigeben»: geprüften Designvorschlag veröffentlichen (gekennzeichnet als KI-Visualisierung). */
+export async function confirmAiVisualizationAction(imageId: string, confirmed: unknown): Promise<ActionResult<null>> {
+  return runAction(async () => {
+    const user = await assertUser();
+    const supabase = await createClient();
+    await confirmAiVisualization(supabase, user, imageId, confirmed);
+    return null;
+  }, "Der Vorschlag ist freigegeben und erscheint im Inserat als KI-Visualisierung.");
+}
+
+/** «Verwerfen»: noch nicht freigegebenen Designvorschlag löschen. */
+export async function discardAiVisualizationAction(imageId: string): Promise<ActionResult<{ sourceImageId: string | null }>> {
+  return runAction(async () => {
+    const user = await assertUser();
+    const supabase = await createClient();
+    return discardAiVisualization(supabase, user, imageId);
+  }, "Der Vorschlag wurde verworfen.");
 }

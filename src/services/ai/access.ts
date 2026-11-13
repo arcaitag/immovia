@@ -7,7 +7,7 @@ import { createAdminClient, isServiceRoleConfigured } from "@/lib/supabase/admin
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { enqueueJob, runJobNow, type EnqueueInput } from "@/lib/jobs/queue";
 import type { JobRow } from "@/lib/jobs/types";
-import { aiConsentRequiredError, readAiConsent } from "@/lib/ai/consent";
+import { aiConsentRequiredError, readAiConsent, type AiConsentKind } from "@/lib/ai/consent";
 import { AI_NOT_CONFIGURED_MESSAGE, isAiConfigured } from "@/lib/ai/provider";
 import { buildQuotaStatus, type FeatureFlags, type QuotaFeature, type QuotaStatus } from "@/lib/ai/settings";
 import { countQuotaUsage } from "@/lib/ai/usage";
@@ -55,11 +55,13 @@ export interface FeatureAvailability {
    * fragt vor dem Start im Einwilligungsdialog nach, der Server prüft vor jedem KI-Aufruf erneut.
    */
   consentRequired?: boolean;
+  /** Welche Einwilligung fehlt (KI-Texte oder Bild-KI) */
+  consentKind?: AiConsentKind;
 }
 
 /** Einwilligung zur KI-Verarbeitung (Standard: aus; fehlende Zeile = keine Einwilligung). */
-export async function hasAiConsent(supabase: ServerSupabaseClient, userId: string): Promise<boolean> {
-  return readAiConsent(supabase, userId);
+export async function hasAiConsent(supabase: ServerSupabaseClient, userId: string, kind: AiConsentKind = "text"): Promise<boolean> {
+  return readAiConsent(supabase, userId, kind);
 }
 
 export interface AvailabilityOptions {
@@ -71,6 +73,8 @@ export interface AvailabilityOptions {
   requiresAi: boolean;
   /** Braucht die Funktion die Einwilligung zur KI-Verarbeitung? */
   requiresConsent: boolean;
+  /** Welche Einwilligung (Standard: KI-Texte) */
+  consentKind?: AiConsentKind;
   settings?: AiPlatformSettings;
 }
 
@@ -89,7 +93,8 @@ export async function getFeatureAvailability(options: AvailabilityOptions): Prom
   if (options.requiresAi && !isAiConfigured()) {
     return { available: false, reason: "not_configured", message: AI_NOT_CONFIGURED_MESSAGE };
   }
-  const consentRequired = options.requiresConsent && !(await hasAiConsent(options.supabase, options.userId));
+  const consentKind = options.consentKind ?? "text";
+  const consentRequired = options.requiresConsent && !(await hasAiConsent(options.supabase, options.userId, consentKind));
   if (options.quotaFeature) {
     const used = await countQuotaUsage(createAdminClient(), options.userId, options.quotaFeature);
     const quota = buildQuotaStatus(options.quotaFeature, settings.quotas, used);
@@ -104,9 +109,9 @@ export async function getFeatureAvailability(options: AvailabilityOptions): Prom
         quota,
       };
     }
-    return { available: true, quota, consentRequired };
+    return { available: true, quota, consentRequired, consentKind };
   }
-  return { available: true, consentRequired };
+  return { available: true, consentRequired, consentKind };
 }
 
 /** Wirft bei gesperrter Funktion einen passenden AppError, bei fehlender Einwilligung aiConsentRequiredError(). */
@@ -114,7 +119,7 @@ export function assertAvailable(availability: FeatureAvailability): void {
   if (!availability.available) {
     throw new AppError(availability.reason === "quota_exceeded" ? "quota_exceeded" : "service_unavailable", availability.message);
   }
-  if (availability.consentRequired) throw aiConsentRequiredError();
+  if (availability.consentRequired) throw aiConsentRequiredError(availability.consentKind);
 }
 
 /** Kurzfristiges Rate Limit über check_rate_limit (PostgreSQL, Service Role). */

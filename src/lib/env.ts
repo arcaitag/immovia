@@ -49,6 +49,22 @@ export const serverEnv = {
   get imageAiProvider(): string | undefined {
     return process.env.IMAGE_AI_PROVIDER || undefined;
   },
+  /** Bildmodell im Vercel AI Gateway, z. B. google/gemini-3.1-flash-image (Standard im Anbieter). */
+  get imageAiModel(): string | undefined {
+    return process.env.IMAGE_AI_MODEL?.trim() || undefined;
+  },
+  /** Optional: Ausgabegrösse, wie sie das Modell erwartet (z. B. 2K bei Gemini, 1536x1536 bei FLUX). */
+  get imageAiSize(): string | undefined {
+    return process.env.IMAGE_AI_SIZE?.trim() || undefined;
+  },
+  /** Keine Speicherung beim Bildmodell-Anbieter verlangen (Standard: ja; IMAGE_AI_ZDR=0 schaltet ab). */
+  get imageAiZeroDataRetention(): boolean {
+    return process.env.IMAGE_AI_ZDR?.trim() !== "0";
+  },
+  /** Nur lokal nötig; auf Vercel meldet sich die App mit dem OIDC-Token der Funktion an. */
+  get aiGatewayApiKey(): string | undefined {
+    return process.env.AI_GATEWAY_API_KEY?.trim() || undefined;
+  },
   get resendApiKey(): string | undefined {
     return process.env.RESEND_API_KEY || undefined;
   },
@@ -95,9 +111,9 @@ export function getServiceStatus(): ServiceStatus[] {
     },
     {
       key: "image_ai",
-      label: "Bild-KI (Perspektive, Möblierung)",
+      label: "Bild-KI (Designvorschläge)",
       configured: Boolean(serverEnv.imageAiProvider),
-      hint: "Noch kein Anbieter angebunden. Grundkorrekturen funktionieren ohne Bild-KI.",
+      hint: "IMAGE_AI_PROVIDER=vercel-ai-gateway setzen und Guthaben im Vercel AI Gateway aufladen. Grundkorrekturen funktionieren ohne Bild-KI.",
     },
     {
       key: "email",

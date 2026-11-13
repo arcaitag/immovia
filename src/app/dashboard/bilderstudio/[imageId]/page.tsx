@@ -6,27 +6,30 @@ import { Alert } from "@/components/ui/alert";
 import { PageHeader } from "@/components/ui/page-header";
 import { ImageEditor } from "@/components/image-studio/image-editor";
 import { ImageAiPanel } from "@/components/image-studio/image-ai-panel";
+import { AiReviewPanel } from "@/components/image-studio/ai-review-panel";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import { imageVariantUrl, propertyImageUrl } from "@/lib/storage";
 import { stepHref } from "@/lib/properties/steps";
 import { isUuid } from "@/lib/utils";
-import { getImageAiStatus } from "@/lib/images/ai-providers";
+import { getImageAiStatus, getImageConsentInfo } from "@/lib/images/ai-providers";
 import { STAGING_ROOM_TYPES, STAGING_STYLES } from "@/lib/images/ai-providers/types";
 import { getPropertyWorkspace } from "@/services/properties";
 import { getFeatureAvailability } from "@/services/ai/access";
 import { loadAiSettings } from "@/services/ai/settings";
 
-// Vorschau und Übernehmen laufen als Server Actions dieser Seite (Bildverarbeitung mit sharp)
-export const maxDuration = 60;
+// Vorschau und Übernehmen laufen als Server Actions dieser Seite (Bildverarbeitung mit sharp).
+// Aufträge an die Bild-KI laufen direkt nach der Antwort weiter (after) und brauchen mehr Zeit.
+export const maxDuration = 300;
 
 export const metadata: Metadata = { title: "Bild bearbeiten" };
 
 const KIND_LABELS: Record<string, string> = {
   enhance: "Optimierung",
   perspective: "Perspektive (Bild-KI)",
-  virtual_staging: "Virtuelle Möblierung (Bild-KI)",
+  virtual_staging: "Neu einrichten (Bild-KI)",
+  declutter: "Aufräumen (Bild-KI)",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -50,6 +53,36 @@ export default async function ImageStudioPage({ params }: { params: Promise<{ im
   if (!image) notFound();
   // Zugriff nur für Verwaltende des Objekts (404 sonst), zugleich Name des Objekts
   const ws = await getPropertyWorkspace(image.property_id);
+  const alt = image.caption?.trim() || "Bild der Immobilie";
+  const backLink = (
+    <Link href={`/dashboard/bilderstudio?immobilie=${ws.property.id}`} className="inline-flex items-center gap-1 hover:underline">
+      <ArrowLeft className="size-4" aria-hidden /> Bilderstudio · {ws.displayName}
+    </Link>
+  );
+
+  // Designvorschlag der Bild-KI, der noch auf die Prüfung wartet
+  if (image.is_ai_visualization && image.status === "review") {
+    const { data: source } = image.source_image_id
+      ? await supabase.from("property_images").select("id, display_path, external_url").eq("id", image.source_image_id).maybeSingle()
+      : { data: null };
+    const afterUrl = propertyImageUrl(image, "lg");
+    return (
+      <div className="grid gap-6">
+        <PageHeader
+          eyebrow={backLink}
+          title="KI-Vorschlag prüfen"
+          description="Erst wenn Sie den Vorschlag freigeben, erscheint er im Inserat – gekennzeichnet als «KI-Visualisierung»."
+        />
+        {afterUrl ? (
+          <AiReviewPanel imageId={image.id} beforeUrl={propertyImageUrl(source, "lg")} afterUrl={afterUrl} alt={alt} />
+        ) : (
+          <Alert tone="neutral" title="Vorschau nicht verfügbar">
+            Für diesen Vorschlag ist keine Bilddatei vorhanden.
+          </Alert>
+        )}
+      </div>
+    );
+  }
 
   const settings = await loadAiSettings();
   const aiStatus = getImageAiStatus();
@@ -64,7 +97,16 @@ export default async function ImageStudioPage({ params }: { params: Promise<{ im
       requiresConsent: false,
       settings: { ...settings, features: { ...settings.features, image_ai: true } },
     }),
-    getFeatureAvailability({ supabase, userId: ws.user.id, flag: "image_ai", requiresAi: false, requiresConsent: true, settings }),
+    getFeatureAvailability({
+      supabase,
+      userId: ws.user.id,
+      flag: "image_ai",
+      quotaFeature: "virtual_staging",
+      requiresAi: false,
+      requiresConsent: true,
+      consentKind: "image",
+      settings,
+    }),
     supabase
       .from("image_transformations")
       .select("id, kind, provider, status, created_at")
@@ -73,7 +115,6 @@ export default async function ImageStudioPage({ params }: { params: Promise<{ im
       .limit(10),
   ]);
 
-  const alt = image.caption?.trim() || "Bild der Immobilie";
   const currentUrl = propertyImageUrl(image, "md");
   const beforeUrl = image.external_url ? currentUrl : (imageVariantUrl(image.base_path, "md") ?? currentUrl);
   const notEditable = image.external_url
@@ -88,11 +129,7 @@ export default async function ImageStudioPage({ params }: { params: Promise<{ im
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow={
-          <Link href={`/dashboard/bilderstudio?immobilie=${ws.property.id}`} className="inline-flex items-center gap-1 hover:underline">
-            <ArrowLeft className="size-4" aria-hidden /> Bilderstudio · {ws.displayName}
-          </Link>
-        }
+        eyebrow={backLink}
         title="Bild bearbeiten"
         description="Vergleichen Sie Original und Vorschau mit dem Regler. Übernommen wird erst, wenn Sie auf «Übernehmen» klicken."
       />
@@ -119,6 +156,7 @@ export default async function ImageStudioPage({ params }: { params: Promise<{ im
           roomTypes={STAGING_ROOM_TYPES}
           styles={STAGING_STYLES}
           editable={!notEditable}
+          consentInfo={getImageConsentInfo()}
         />
         <section aria-labelledby="image-history-title" className="grid content-start gap-3 rounded-2xl border border-border bg-card p-5">
           <h2 id="image-history-title" className="font-display text-base font-bold">

@@ -312,6 +312,51 @@ describe("Datenintegrität", () => {
       );
     });
   });
+
+  it("KI-Vorschläge sind erst nach der Freigabe öffentlich und bleiben gekennzeichnet", async () => {
+    const imageId = "70000000-0000-4000-8000-0000000000a1";
+    // Wie der Hintergrundjob (privilegiert): Vorschlag im Prüfstatus zum veröffentlichten Inserat
+    await db.query(
+      `insert into public.property_images (id, property_id, base_path, display_path, status, is_ai_visualization, caption)
+       values ($1, $2, $3, $3, 'review', true, 'KI-Visualisierung: aufgeräumt')`,
+      [imageId, IDS.property, `${IDS.property}/${imageId}/base`],
+    );
+    const visibleToAnon = async () =>
+      withSession(db, anon, async (s) => (await s.query("select id from public.property_images where id = $1", [imageId])).length);
+    expect(await visibleToAnon()).toBe(0);
+
+    // Die Kennzeichnung kann der Eigentümer nicht entfernen (keine Spaltenberechtigung)
+    await withSession(db, as(IDS.seller), async (s) => {
+      await expectError(s.query("update public.property_images set is_ai_visualization = false where id = $1", [imageId]), /permission denied/);
+    });
+    await withSession(db, { ...as(IDS.seller), commit: true }, async (s) => {
+      // Eigentümer sieht den Vorschlag und gibt ihn frei
+      expect((await s.query("select id from public.property_images where id = $1", [imageId])).length).toBe(1);
+      await s.query("update public.property_images set status = 'ready' where id = $1", [imageId]);
+    });
+    expect(await visibleToAnon()).toBe(1);
+    const row = await db.query<{ is_ai_visualization: boolean }>("select is_ai_visualization from public.property_images where id = $1", [imageId]);
+    expect(row.rows[0]?.is_ai_visualization).toBe(true);
+    await expect(db.query("update public.property_images set status = 'irgendwas' where id = $1", [imageId])).rejects.toThrow(
+      /property_images_status_check/,
+    );
+    await db.query("delete from public.property_images where id = $1", [imageId]);
+  });
+
+  it("Einwilligung zur Bild-KI ist eigenständig und nur selbst änderbar", async () => {
+    await withSession(db, { ...as(IDS.seller), commit: true }, async (s) => {
+      const rows = await s.query<{ ai_image_consent: boolean }>("select ai_image_consent from public.user_preferences where user_id = $1", [IDS.seller]);
+      expect(rows[0]?.ai_image_consent).toBe(false);
+      await s.query("update public.user_preferences set ai_image_consent = true where user_id = $1", [IDS.seller]);
+      // Fremde Einstellungen bleiben unberührt (RLS)
+      await s.query("update public.user_preferences set ai_image_consent = true where user_id = $1", [IDS.orgOwner]);
+    });
+    const own = await db.query<{ ai_image_consent: boolean }>("select ai_image_consent from public.user_preferences where user_id = $1", [IDS.seller]);
+    const other = await db.query<{ ai_image_consent: boolean }>("select ai_image_consent from public.user_preferences where user_id = $1", [IDS.orgOwner]);
+    expect(own.rows[0]?.ai_image_consent).toBe(true);
+    expect(other.rows[0]?.ai_image_consent).toBe(false);
+    await db.query("update public.user_preferences set ai_image_consent = false where user_id = $1", [IDS.seller]);
+  });
 });
 
 describe("Sicherheitsprüfung: Dossiers und Bildpfade", () => {

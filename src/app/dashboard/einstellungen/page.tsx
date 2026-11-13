@@ -10,6 +10,7 @@ import { PreferencesForm } from "@/components/account/preferences-form";
 import { DeleteAccountDialog } from "@/components/account/delete-account-dialog";
 import { requireUser } from "@/lib/auth/session";
 import { getServiceStatus } from "@/lib/env";
+import { getImageAiStatus, getImageConsentInfo } from "@/lib/images/ai-providers";
 import { getAccountSettings } from "@/services/account";
 import { getOwnedOrganizationsWithMembers } from "@/services/organizations";
 
@@ -24,6 +25,7 @@ export default async function SettingsPage() {
     getOwnedOrganizationsWithMembers(user.id),
   ]);
   const aiConfigured = getServiceStatus().find((s) => s.key === "ai_text")?.configured ?? false;
+  const imageAiConfigured = getImageAiStatus().configured;
 
   return (
     <div className="grid gap-8">
@@ -72,8 +74,10 @@ export default async function SettingsPage() {
           {preferences ? (
             <PreferencesForm
               aiConfigured={aiConfigured}
+              imageAi={{ configured: imageAiConfigured, ...getImageConsentInfo() }}
               defaultValues={{
                 ai_processing_consent: preferences.ai_processing_consent,
+                ai_image_consent: preferences.ai_image_consent,
                 analytics_consent: preferences.analytics_consent,
                 marketing_consent: preferences.marketing_consent,
                 default_offer_type: preferences.default_offer_type ?? "none",

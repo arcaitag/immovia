@@ -117,7 +117,7 @@ describe("Einstellungen", () => {
   });
 
   it("wandelt «Keine Vorgabe» der Angebotsart in null um", () => {
-    const base = { ai_processing_consent: true, analytics_consent: false, marketing_consent: false };
+    const base = { ai_processing_consent: true, ai_image_consent: false, analytics_consent: false, marketing_consent: false };
     expect(preferencesSchema.parse({ ...base, default_offer_type: "none" }).default_offer_type).toBeNull();
     expect(preferencesSchema.parse({ ...base, default_offer_type: "rent" }).default_offer_type).toBe("rent");
     expect(preferencesSchema.safeParse({ ...base, default_offer_type: "lease" }).success).toBe(false);

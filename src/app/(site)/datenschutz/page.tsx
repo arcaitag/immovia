@@ -3,6 +3,7 @@ import Link from "next/link";
 import { DraftNotice, LegalSection, PageIntro, Placeholder } from "@/lib/content/components";
 import { LEGAL_DRAFT_DATE, LEGAL_PAGES_ARE_DRAFTS } from "@/lib/content/legal";
 import { formatDateLong } from "@/lib/format";
+import { getImageConsentInfo } from "@/lib/images/ai-providers";
 import { pageMetadata } from "@/lib/seo/metadata";
 
 export const metadata: Metadata = pageMetadata({
@@ -30,6 +31,8 @@ const TOC = [
 ];
 
 export default function DatenschutzPage() {
+  // Empfänger der Fotos hängt vom eingestellten Bildmodell ab (IMAGE_AI_MODEL)
+  const imageAi = getImageConsentInfo();
   return (
     <div className="container-page py-14 sm:py-20">
       <PageIntro
@@ -135,6 +138,13 @@ export default function DatenschutzPage() {
                 Funktion auslösen. Bedingungen zur Datenverwendung: <Placeholder>Vertragsbedingungen prüfen und ergänzen</Placeholder>.
               </li>
               <li>
+                <strong>Vercel AI Gateway</strong> mit dem Bildmodell von <strong>{imageAi.recipient}</strong> – Designvorschläge im
+                Bilderstudio («Aufräumen», «Neu einrichten»). Übermittelt wird nur das ausgewählte Foto ohne Standortdaten, und nur wenn
+                Sie die Funktion auslösen und der Bild-KI zugestimmt haben. Wir verlangen bei jeder Anfrage, dass das Foto nicht zum
+                Training verwendet wird{imageAi.noRetention ? " und der Anbieter es nach der Bearbeitung nicht speichert" : ""}.{" "}
+                <Placeholder>Vertragsbedingungen prüfen und ergänzen</Placeholder>
+              </li>
+              <li>
                 <strong>Resend</strong> – Versand von E-Mails (E-Mail-Adresse und Inhalt der Benachrichtigung).{" "}
                 <Placeholder>Vertragspartnerin und Sitz ergänzen</Placeholder>
               </li>
@@ -195,7 +205,8 @@ export default function DatenschutzPage() {
               KI-Funktionen (z. B. Textvorschläge, Erklärungen zur Bewertung, Assistent) werden nur ausgeführt, wenn Sie sie
               auslösen. Ergebnisse sind Vorschläge, die Sie prüfen und anpassen. Zahlen zur Bewertung berechnet nicht das
               Sprachmodell, sondern ein nachvollziehbares Verfahren auf Basis der ausgewiesenen Datenquellen. Mit KI veränderte
-              Bilder werden öffentlich gekennzeichnet, und das Original bleibt erhalten.
+              Bilder werden öffentlich gekennzeichnet, und das Original bleibt erhalten. Designvorschläge der Bild-KI erscheinen
+              erst, nachdem die inserierende Person sie geprüft und freigegeben hat.
             </p>
           </LegalSection>
 
