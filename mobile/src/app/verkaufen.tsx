@@ -5,6 +5,7 @@ import * as React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Accordion, CheckList, CtaBand, Eyebrow, FeatureCard, IconTile, Section, SectionHeading, contentStyles, photo, useSiteLink, type IconName } from "@/components/content";
+import { FadeUp } from "@/components/motion";
 import { Button } from "@/components/ui";
 import { getAiQuotas } from "@/lib/api-content";
 import { FAQ } from "@/lib/content/faq";
@@ -79,7 +80,7 @@ export default function SellScreen() {
       <Stack.Screen options={{ title: "Verkaufen" }} />
 
       <Section tone="surface" style={{ paddingTop: 28 }}>
-        <View style={{ gap: space.md }}>
+        <FadeUp style={{ gap: space.md }}>
           <Eyebrow>Immobilie verkaufen oder vermieten</Eyebrow>
           <Text accessibilityRole="header" style={contentStyles.pageTitle}>
             Selbst verkaufen – mit den Werkzeugen der Profis
@@ -88,7 +89,7 @@ export default function SellScreen() {
             Inserieren Sie Wohnung, Haus oder Grundstück kostenlos. Immovia führt Sie von der Erfassung über Bewertung, Bilder und Verkaufsdossier bis zur Besichtigung –
             und Sie behalten jederzeit die Kontrolle.
           </Text>
-        </View>
+        </FadeUp>
         <View style={{ gap: space.md }}>
           <Button title="Jetzt kostenlos starten" onPress={() => open("/verkaufen/start")} />
           <Button title="Wie die Bewertung funktioniert" icon="speedometer-outline" variant="outline" onPress={() => open("/bewerten")} />

@@ -7,7 +7,9 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, Vie
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Accordion, CheckList, FeatureCard, IconTile, Section, TextLink, contentStyles, mint50, photo, useSiteLink, type IconName } from "@/components/content";
+import { AppHeader, Logo } from "@/components/app-header";
 import { ListingCard } from "@/components/listing-card";
+import { FadeUp, RiseWord, Swoosh } from "@/components/motion";
 import { Badge, Button, Chip, Loading } from "@/components/ui";
 import { EMPTY_FILTERS, type SearchFilters } from "@/lib/api";
 import { encodeFiltersParam } from "@/lib/api-account";
@@ -36,6 +38,8 @@ const TYPE_GROUPS: { value: string; label: string; types: Enums<"property_type">
   { value: "gewerbe", label: "Gewerbe und Büro", types: ["commercial", "office"] },
   { value: "neubau", label: "Neubauprojekt", types: ["new_build_project"] },
 ];
+
+const HERO_WORDS = ["Immobilien.", "Einfach.", "Digital."];
 
 const SELL_POINTS = [
   "Keine Inseratgebühren und keine Provision",
@@ -87,27 +91,25 @@ const FOOTER_LINKS = [
 ];
 
 export default function HomeScreen() {
-  const router = useRouter();
   const open = useSiteLink();
   const favorites = useFavorites();
   const latest = useQuery({ queryKey: ["latest-listings"], queryFn: () => latestListings(3) });
   const cards = latest.data ?? [];
   // Noch keine Inserate: klar gekennzeichnete Beispiele statt einer leeren Fläche
   const showExamples = latest.isSuccess && cards.length === 0;
+  const [scrolled, setScrolled] = React.useState(false);
 
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: colors.white }}>
-      <View style={styles.topBar}>
-        <Text accessibilityRole="header" style={styles.logo}>
-          Immovia
-        </Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Merkliste" hitSlop={6} onPress={() => router.push("/merkliste" as Href)} style={styles.topButton}>
-          <Ionicons name="heart-outline" size={24} color={colors.forest} />
-        </Pressable>
-      </View>
+      <AppHeader scrolled={scrolled} />
       <ScrollView
         style={{ backgroundColor: colors.white }}
         keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={32}
+        onScroll={(event) => {
+          const next = event.nativeEvent.contentOffset.y > 8;
+          if (next !== scrolled) setScrolled(next);
+        }}
         refreshControl={<RefreshControl refreshing={latest.isRefetching} onRefresh={() => void latest.refetch()} tintColor={colors.brand} />}
       >
         {/* Hero mit Suche */}
@@ -115,17 +117,29 @@ export default function HomeScreen() {
           <Image source={photo(MARKETING_IMAGES.hero.src, 1400)} style={StyleSheet.absoluteFill} contentFit="cover" contentPosition={{ left: "62%", top: "70%" }} transition={200} />
           <HeroFade />
           <View style={{ padding: space.lg, paddingTop: 28, paddingBottom: space.xl, gap: space.lg }}>
-            <View>
-              <Text accessibilityRole="header" style={styles.heroTitle}>
-                Immobilien. Einfach.
-              </Text>
-              <View style={{ alignSelf: "flex-start" }}>
-                <Text style={styles.heroTitle}>Digital.</Text>
-                <View style={styles.swoosh} />
-              </View>
+            {/* Die drei Wörter steigen nacheinander auf, danach zeichnet sich der Strich unter «Digital.» */}
+            <View accessible accessibilityRole="header" accessibilityLabel="Immobilien. Einfach. Digital." style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 9 }}>
+              {HERO_WORDS.map((word, index) =>
+                index === HERO_WORDS.length - 1 ? (
+                  <View key={word}>
+                    <RiseWord delay={100 + index * 140} style={styles.heroTitle} lineHeight={40}>
+                      {word}
+                    </RiseWord>
+                    <Swoosh delay={850} style={{ width: "92%", marginTop: -3 }} />
+                  </View>
+                ) : (
+                  <RiseWord key={word} delay={100 + index * 140} style={styles.heroTitle} lineHeight={40}>
+                    {word}
+                  </RiseWord>
+                ),
+              )}
             </View>
-            <Text style={styles.heroLead}>Entdecke, bewerte und vermarkte Immobilien.{"\n"}Alles auf einer Plattform.</Text>
-            <HeroSearch />
+            <FadeUp delay={450}>
+              <Text style={styles.heroLead}>Entdecke, bewerte und vermarkte Immobilien.{"\n"}Alles auf einer Plattform.</Text>
+            </FadeUp>
+            <FadeUp delay={550}>
+              <HeroSearch />
+            </FadeUp>
           </View>
         </View>
 
@@ -351,7 +365,7 @@ export default function HomeScreen() {
 
         {/* Fusszeile */}
         <View style={styles.footer}>
-          <Text style={styles.logo}>Immovia</Text>
+          <Logo size={28} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: space.xl }}>
             {FOOTER_LINKS.map((link) => (
               <Pressable key={link.path} accessibilityRole="link" onPress={() => open(link.path)} style={({ pressed }) => [{ minHeight: 44, justifyContent: "center" }, pressed && { opacity: 0.6 }]}>
@@ -521,12 +535,8 @@ function ExampleCard({ example }: { example: (typeof EXAMPLE_LISTINGS)[number] }
 }
 
 const styles = StyleSheet.create({
-  topBar: { height: 52, paddingHorizontal: space.lg, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: 1, borderBottomColor: colors.border },
-  logo: { fontSize: 23, fontWeight: "800", letterSpacing: -0.8, color: colors.forest },
-  topButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", marginRight: -8 },
   hero: { overflow: "hidden", backgroundColor: colors.mint100 },
   heroTitle: { fontSize: 36, fontWeight: "800", letterSpacing: -1.2, lineHeight: 40, color: colors.foreground },
-  swoosh: { height: 5, width: "92%", borderRadius: 3, backgroundColor: colors.brand, marginTop: 2, transform: [{ rotate: "-1.2deg" }] },
   heroLead: { fontSize: 18, lineHeight: 26, color: "rgba(25,40,32,0.82)" },
   offerTabs: { flexDirection: "row", alignSelf: "flex-start", gap: 4, backgroundColor: colors.white, paddingHorizontal: 8, paddingTop: 8, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
   offerTab: { height: 48, paddingHorizontal: 20, borderRadius: radius.md, flexDirection: "row", alignItems: "center", gap: 8 },

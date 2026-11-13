@@ -3,8 +3,9 @@ import { Image } from "expo-image";
 import { useRouter, type Href } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import * as React from "react";
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { LayoutAnimation, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
+import { FadeUp } from "@/components/motion";
 import { Badge, Button } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { CONFIG } from "@/lib/config";
@@ -64,13 +65,15 @@ export function Eyebrow({ children, color = colors.brand }: { children: string; 
 /** Seitenkopf wie PageIntro der Website. */
 export function PageIntro({ eyebrow, title, lead, children }: { eyebrow?: string; title: string; lead?: string; children?: React.ReactNode }) {
   return (
-    <View style={{ backgroundColor: colors.surface, paddingHorizontal: space.lg, paddingTop: 28, paddingBottom: 32, gap: space.md }}>
-      {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
-      <Text accessibilityRole="header" style={styles.pageTitle}>
-        {title}
-      </Text>
-      {lead ? <Text style={styles.lead}>{lead}</Text> : null}
-      {children ? <View style={{ gap: space.md, marginTop: space.sm }}>{children}</View> : null}
+    <View style={{ backgroundColor: colors.surface, paddingHorizontal: space.lg, paddingTop: 28, paddingBottom: 32 }}>
+      <FadeUp style={{ gap: space.md }}>
+        {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
+        <Text accessibilityRole="header" style={styles.pageTitle}>
+          {title}
+        </Text>
+        {lead ? <Text style={styles.lead}>{lead}</Text> : null}
+        {children ? <View style={{ gap: space.md, marginTop: space.sm }}>{children}</View> : null}
+      </FadeUp>
     </View>
   );
 }
@@ -175,7 +178,11 @@ export function Accordion({ items }: { items: { question: string; answer: string
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ expanded }}
-              onPress={() => setOpen(expanded ? null : item.question)}
+              onPress={() => {
+                // Antwort weich auf- und zuklappen
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setOpen(expanded ? null : item.question);
+              }}
               style={({ pressed }) => [styles.accordionHead, pressed && { opacity: 0.6 }]}
             >
               <Text style={{ flex: 1, fontSize: 16, fontWeight: "600", color: colors.foreground, lineHeight: 22 }}>{item.question}</Text>

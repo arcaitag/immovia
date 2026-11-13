@@ -55,6 +55,8 @@ export default function TabsLayout() {
           tabBarIcon: icon("chatbubbles", "chatbubbles-outline"),
           tabBarBadge: unread.data ? unread.data : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.primary },
+          // Ohne Anmeldung gibt es keine Nachrichten – der Reiter erscheint erst mit Konto
+          ...(userId ? {} : { href: null }),
         }}
       />
       <Tabs.Screen name="konto" options={{ title: "Konto", tabBarIcon: icon("person", "person-outline") }} />

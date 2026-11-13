@@ -5,6 +5,7 @@ import * as React from "react";
 import { FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppHeader } from "@/components/app-header";
 import { ListingCard } from "@/components/listing-card";
 import { SaveSearchSheet } from "@/components/save-search-sheet";
 import { Button, Chip, EmptyState, Field, Loading, Notice, SectionTitle } from "@/components/ui";
@@ -69,15 +70,11 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: colors.white }}>
+      <AppHeader />
       <View style={styles.header}>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text accessibilityRole="header" style={text.title}>
-            Immobilien finden
-          </Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Merkliste" hitSlop={6} onPress={() => router.push("/merkliste")} style={styles.headerButton}>
-            <Ionicons name="heart-outline" size={24} color={colors.forest} />
-          </Pressable>
-        </View>
+        <Text accessibilityRole="header" style={text.title}>
+          Immobilien finden
+        </Text>
         <View style={styles.searchRow}>
           <View style={styles.searchBox}>
             <Ionicons name="search" size={19} color={colors.muted} />
@@ -269,8 +266,7 @@ function FilterForm({ filters, onClose, onApply }: { filters: SearchFilters; onC
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: space.md, gap: space.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  headerButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", marginRight: -8 },
+  header: { paddingHorizontal: space.lg, paddingTop: 2, paddingBottom: space.md, gap: space.md, borderBottomWidth: 1, borderBottomColor: colors.border },
   searchRow: { flexDirection: "row", gap: space.sm },
   searchBox: {
     flex: 1,
