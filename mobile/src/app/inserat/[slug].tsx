@@ -19,8 +19,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { FloorPlans, ListingDownloads, ReportSheet, ViewingSection } from "@/components/listing-extras";
 import { Badge, Button, EmptyState, Field, Loading, Notice, SectionTitle, ToggleRow } from "@/components/ui";
 import { createInquiry, listingBySlug, type ListingRow } from "@/lib/api";
+import { listingExtras } from "@/lib/api-account";
 import { useAuth } from "@/lib/auth";
 import { CONFIG } from "@/lib/config";
 import { useFavorites } from "@/lib/favorites";
@@ -63,7 +65,10 @@ export default function ListingScreen() {
   const favorites = useFavorites();
   const [index, setIndex] = React.useState(0);
   const [contactOpen, setContactOpen] = React.useState(false);
+  const [reportOpen, setReportOpen] = React.useState(false);
   const query = useQuery({ queryKey: ["listing", slug], queryFn: () => listingBySlug(slug) });
+  const loaded = query.data?.listing;
+  const extras = useQuery({ queryKey: ["listing-extras", loaded?.id], enabled: Boolean(loaded), queryFn: () => listingExtras(loaded!) });
 
   if (query.isPending) return <Loading />;
   if (query.isError) {
@@ -79,7 +84,9 @@ export default function ListingScreen() {
   }
 
   const { listing, images, contact, seller } = query.data;
-  const photos = images.filter((image) => imageUrl(image, "lg"));
+  const photos = images.filter((image) => !image.is_floor_plan && imageUrl(image, "lg"));
+  const floorPlans = images.filter((image) => image.is_floor_plan && imageUrl(image, "lg"));
+  const features = extras.data?.features ?? [];
   const isOwner = userId === listing.owner_id;
   const favorite = favorites.isFavorite(listing.id);
   const url = `${CONFIG.siteUrl}/immobilien/${listing.slug}`;
@@ -186,10 +193,20 @@ export default function ListingScreen() {
               <Text style={text.body}>{listing.description}</Text>
             </>
           ) : null}
-          {listing.equipment_description ? (
+          {features.length || listing.equipment_description ? (
             <>
               <SectionTitle>Ausstattung</SectionTitle>
-              <Text style={text.body}>{listing.equipment_description}</Text>
+              {features.length ? (
+                <View accessibilityRole="list" style={styles.features}>
+                  {features.map((label) => (
+                    <View key={label} style={styles.feature}>
+                      <Ionicons name="checkmark-circle" size={18} color={colors.brand} />
+                      <Text style={[text.body, { flexShrink: 1 }]}>{label}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              {listing.equipment_description ? <Text style={text.body}>{listing.equipment_description}</Text> : null}
             </>
           ) : null}
           {listing.location_description ? (
@@ -198,6 +215,10 @@ export default function ListingScreen() {
               <Text style={text.body}>{listing.location_description}</Text>
             </>
           ) : null}
+
+          <FloorPlans images={floorPlans} width={WIDTH} />
+          <ListingDownloads extras={extras.data} url={url} />
+          {isOwner ? null : <ViewingSection listingId={listing.id} userId={userId} />}
 
           <SectionTitle>Anbieter</SectionTitle>
           <View style={styles.seller}>
@@ -216,6 +237,9 @@ export default function ListingScreen() {
             </View>
           </View>
           {listing.is_demo ? <Notice tone="info">Dies ist ein Beispielinserat zur Veranschaulichung, kein echtes Angebot.</Notice> : null}
+          {isOwner ? null : (
+            <Button title="Inserat melden" variant="ghost" icon="flag-outline" onPress={() => (userId ? setReportOpen(true) : router.push("/login"))} />
+          )}
         </View>
       </ScrollView>
 
@@ -227,6 +251,7 @@ export default function ListingScreen() {
         )}
       </View>
 
+      <ReportSheet open={reportOpen} listingId={listing.id} onClose={() => setReportOpen(false)} />
       <ContactSheet
         open={contactOpen}
         listing={listing}
@@ -282,6 +307,8 @@ const styles = StyleSheet.create({
   counter: { position: "absolute", right: 12, bottom: 12, backgroundColor: "rgba(25,40,32,0.75)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.full },
   facts: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingHorizontal: space.lg, backgroundColor: colors.surface },
   factRow: { flexDirection: "row", justifyContent: "space-between", gap: space.md, paddingVertical: 12 },
+  features: { flexDirection: "row", flexWrap: "wrap", rowGap: space.sm },
+  feature: { width: "50%", flexDirection: "row", alignItems: "center", gap: 6, paddingRight: space.sm },
   seller: { flexDirection: "row", alignItems: "center", gap: space.md, padding: space.lg, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
   sellerIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.mint100, alignItems: "center", justifyContent: "center" },
   cta: { position: "absolute", left: 0, right: 0, bottom: 0, padding: space.md, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border },

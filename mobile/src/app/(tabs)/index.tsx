@@ -1,12 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as React from "react";
 import { FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ListingCard } from "@/components/listing-card";
+import { SaveSearchSheet } from "@/components/save-search-sheet";
 import { Button, Chip, EmptyState, Field, Loading, Notice, SectionTitle } from "@/components/ui";
 import { EMPTY_FILTERS, PAGE_SIZE, activeFilterCount, searchListings, type SearchFilters } from "@/lib/api";
+import { decodeFiltersParam } from "@/lib/api-account";
+import { useAuth } from "@/lib/auth";
 import { useFavorites } from "@/lib/favorites";
 import { formatNumber, parseNumber } from "@/lib/format";
 import { PROPERTY_TYPES, errorMessage } from "@/lib/labels";
@@ -29,7 +33,23 @@ export default function SearchScreen() {
   const [filters, setFilters] = React.useState<SearchFilters>(EMPTY_FILTERS);
   const [queryInput, setQueryInput] = React.useState("");
   const [filterOpen, setFilterOpen] = React.useState(false);
+  const [saveOpen, setSaveOpen] = React.useState(false);
   const favorites = useFavorites();
+  const router = useRouter();
+  const { userId } = useAuth();
+
+  // Suchauftrag ausführen: Filter kommen als Parameter («suche», «t» = Zeitpunkt des Aufrufs) und werden einmal übernommen
+  const params = useLocalSearchParams<{ suche?: string; t?: string }>();
+  const incoming = params.suche ? `${params.t ?? ""}:${params.suche}` : null;
+  const [applied, setApplied] = React.useState<string | null>(null);
+  if (incoming && incoming !== applied) {
+    setApplied(incoming);
+    const next = decodeFiltersParam(params.suche);
+    if (next) {
+      setFilters(next);
+      setQueryInput(next.query);
+    }
+  }
 
   // Eingabe erst nach kurzer Pause suchen
   React.useEffect(() => {
@@ -102,9 +122,21 @@ export default function SearchScreen() {
         refreshControl={<RefreshControl refreshing={search.isRefetching && !search.isFetchingNextPage} onRefresh={() => void search.refetch()} tintColor={colors.brand} />}
         ListHeaderComponent={
           search.isSuccess ? (
-            <Text accessibilityRole="summary" style={text.small}>
-              {total === 1 ? "1 Immobilie gefunden" : `${formatNumber(total)} Immobilien gefunden`}
-            </Text>
+            <View style={styles.resultRow}>
+              <Text accessibilityRole="summary" style={[text.small, { flex: 1 }]}>
+                {total === 1 ? "1 Immobilie gefunden" : `${formatNumber(total)} Immobilien gefunden`}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Suche speichern"
+                accessibilityHint="Speichert die aktuelle Suche als Suchauftrag"
+                onPress={() => (userId ? setSaveOpen(true) : router.push("/login"))}
+                style={({ pressed }) => [styles.saveButton, pressed && { backgroundColor: colors.mint100 }]}
+              >
+                <Ionicons name="bookmark-outline" size={18} color={colors.forest} />
+                <Text style={{ fontSize: 14.5, fontWeight: "600", color: colors.forest }}>Suche speichern</Text>
+              </Pressable>
+            </View>
           ) : undefined
         }
         ListEmptyComponent={
@@ -139,6 +171,15 @@ export default function SearchScreen() {
       />
 
       <FilterSheet open={filterOpen} filters={filters} onClose={() => setFilterOpen(false)} onApply={setFilters} />
+      <SaveSearchSheet
+        open={saveOpen}
+        filters={filters}
+        onClose={() => setSaveOpen(false)}
+        onShowList={() => {
+          setSaveOpen(false);
+          router.push("/suchauftraege");
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -247,6 +288,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
+  },
+  resultRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  saveButton: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
   },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   sheetHeader: {
