@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Immovia",
+    "slug": "immovia",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "immovia",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "ch.immovia.app",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Immovia verwendet die Kamera, damit Sie Fotos Ihrer Immobilie aufnehmen können.",
+        "NSPhotoLibraryUsageDescription": "Immovia greift auf Ihre Fotos zu, damit Sie Bilder Ihrer Immobilie hochladen können."
+      }
+    },
+    "android": {
+      "package": "ch.immovia.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#EAF3DF",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      }
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Immovia greift auf Ihre Fotos zu, damit Sie Bilder Ihrer Immobilie hochladen können.",
+          "cameraPermission": "Immovia verwendet die Kamera, damit Sie Fotos Ihrer Immobilie aufnehmen können."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
