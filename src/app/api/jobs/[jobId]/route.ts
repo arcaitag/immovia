@@ -1,4 +1,5 @@
 import { NextResponse, after, type NextRequest } from "next/server";
+import { getBearerSession } from "@/lib/auth/bearer";
 import { getSessionUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { isServiceRoleConfigured } from "@/lib/supabase/admin";
@@ -16,13 +17,15 @@ const NO_STORE = { "Cache-Control": "no-store" };
  * Fällige, wartende Jobs (z. B. nach einem vorübergehenden Fehler) werden dabei direkt
  * wieder angestossen – so hängt die Verarbeitung nicht nur am täglichen Cron.
  */
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
   if (!isUuid(jobId)) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404, headers: NO_STORE });
-  const user = await getSessionUser();
+  // Website: Cookie-Sitzung. Mobile App: «Authorization: Bearer <Token>».
+  const bearer = request.headers.has("authorization") ? await getBearerSession(request) : null;
+  const user = bearer?.user ?? (await getSessionUser());
   if (!user) return NextResponse.json({ error: "Bitte melden Sie sich an." }, { status: 401, headers: NO_STORE });
 
-  const supabase = await createClient();
+  const supabase = bearer?.supabase ?? (await createClient());
   const { data: job } = await supabase
     .from("ai_generation_jobs")
     .select("id, user_id, job_type, status, result, error_message, attempts, max_attempts, created_at, started_at, finished_at, run_after, locked_at")
