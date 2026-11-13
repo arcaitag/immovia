@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { getBearerSession } from "@/lib/auth/bearer";
 import { getSessionUser } from "@/lib/auth/session";
 import { AppError } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
@@ -19,6 +20,10 @@ export const maxDuration = 300;
 /**
  * KI-Assistent: nimmt eine Nachricht entgegen und streamt die Antwort als NDJSON
  * ({"type":"meta"|"delta"|"done"|"error", …} pro Zeile).
+ * Anmeldung per Cookie (Website) oder «Authorization: Bearer» (mobile App).
+ * Mit ?stream=0 kommt die ganze Antwort als JSON { threadId, propertyId, text, messageId } bzw.
+ * { error, consentRequired? } – für Clients ohne lesbaren Antwortstrom (React Native). Ablauf,
+ * Kontingent und Speicherung sind identisch.
  * Lesen mit dem Benutzer-Client (RLS), Schreiben der Nachrichten mit dem Service-Role-Client
  * erst nach der Besitzprüfung des Gesprächs.
  */
@@ -61,7 +66,9 @@ function statusFor(error: AppError): number {
 }
 
 export async function POST(request: NextRequest) {
-  const user = await getSessionUser();
+  // Mobile App: Bearer-Token statt Cookie-Sitzung
+  const bearer = request.headers.has("authorization") ? await getBearerSession(request) : null;
+  const user = bearer?.user ?? (await getSessionUser());
   if (!user) return jsonError("Bitte melden Sie sich an.", 401);
   if (user.profile.status !== "active") return jsonError("Ihr Konto ist derzeit gesperrt.", 403);
 
@@ -75,7 +82,8 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Ungültige Anfrage.", 400);
   const input = parsed.data;
 
-  const supabase = await createClient();
+  const supabase = bearer?.supabase ?? (await createClient());
+  const wantsJson = request.nextUrl.searchParams.get("stream") === "0";
   let threadId: string;
   let propertyId: string | null;
   let history: AiMessage[] = [];
@@ -142,57 +150,71 @@ export async function POST(request: NextRequest) {
   const system = buildAssistantSystemPrompt(context);
   const messages: AiMessage[] = [...history, { role: "user", content: input.message }];
 
+  type Outcome = { ok: true; messageId: string | null; text: string } | { ok: false; message: string; consentRequired: boolean } | null;
+
+  /** Erzeugt die Antwort, meldet den Verlauf als Ereignisse (meta, delta, done | error) und gibt das Ergebnis zurück. */
+  const run = async (send: (event: Record<string, unknown>) => void): Promise<Outcome> => {
+    send({ type: "meta", threadId, propertyId });
+    let text = "";
+    try {
+      const ai = await aiStreamText(
+        { feature: "assistant", userId: user.id },
+        { system, prompt: messages, maxTokens: 4000, effort: "medium", signal: request.signal },
+      );
+      for await (const delta of ai.textStream) {
+        text += delta;
+        send({ type: "delta", text: delta });
+      }
+      const final = await ai.final;
+      const content = (final.text || text).trim().slice(0, 20000);
+      if (!content) throw new Error("Leere Antwort");
+      const { data: saved } = await admin
+        .from("assistant_messages")
+        .insert({ thread_id: threadId, role: "assistant", content })
+        .select("id")
+        .single();
+      await supabase.from("assistant_threads").update({ property_id: propertyId }).eq("id", threadId);
+      send({ type: "done", messageId: saved?.id ?? null });
+      return { ok: true, messageId: saved?.id ?? null, text: content };
+    } catch (error) {
+      // Verbindung vom Benutzer beendet: nichts mehr melden
+      if (request.signal.aborted) return null;
+      const message =
+        error instanceof AppError || (error instanceof Error && /KI|Dienst/.test(error.message))
+          ? error.message
+          : "Die Antwort konnte nicht erstellt werden. Bitte versuchen Sie es erneut.";
+      if (isAiConsentRequiredError(error)) {
+        send({ type: "error", message, consentRequired: true });
+        return { ok: false, message, consentRequired: true };
+      }
+      console.error("[assistant] Antwort fehlgeschlagen", error);
+      send({ type: "error", message });
+      return { ok: false, message, consentRequired: false };
+    }
+  };
+
+  if (wantsJson) {
+    const outcome = await run(() => undefined);
+    if (outcome?.ok) {
+      return NextResponse.json(
+        { threadId, propertyId, text: outcome.text, messageId: outcome.messageId },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    if (outcome?.consentRequired) return jsonError(outcome.message, 403, { consentRequired: true, threadId });
+    return jsonError(outcome?.message ?? "Die Antwort konnte nicht erstellt werden. Bitte versuchen Sie es erneut.", 502, { threadId });
+  }
+
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const send = (event: Record<string, unknown>) => {
+      await run((event) => {
         try {
           controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
         } catch {
           // Verbindung bereits geschlossen (Benutzer hat die Seite verlassen)
         }
-      };
-      send({ type: "meta", threadId, propertyId });
-      let text = "";
-      try {
-        const ai = await aiStreamText(
-          { feature: "assistant", userId: user.id },
-          { system, prompt: messages, maxTokens: 4000, effort: "medium", signal: request.signal },
-        );
-        for await (const delta of ai.textStream) {
-          text += delta;
-          send({ type: "delta", text: delta });
-        }
-        const final = await ai.final;
-        const content = (final.text || text).trim().slice(0, 20000);
-        if (!content) throw new Error("Leere Antwort");
-        const { data: saved } = await admin
-          .from("assistant_messages")
-          .insert({ thread_id: threadId, role: "assistant", content })
-          .select("id")
-          .single();
-        await supabase.from("assistant_threads").update({ property_id: propertyId }).eq("id", threadId);
-        send({ type: "done", messageId: saved?.id ?? null });
-      } catch (error) {
-        if (request.signal.aborted) {
-          try {
-            controller.close();
-          } catch {
-            // bereits geschlossen
-          }
-          return;
-        }
-        const message =
-          error instanceof AppError || (error instanceof Error && /KI|Dienst/.test(error.message))
-            ? error.message
-            : "Die Antwort konnte nicht erstellt werden. Bitte versuchen Sie es erneut.";
-        if (isAiConsentRequiredError(error)) {
-          send({ type: "error", message, consentRequired: true });
-        } else {
-          console.error("[assistant] Antwort fehlgeschlagen", error);
-          send({ type: "error", message });
-        }
-      }
+      });
       try {
         controller.close();
       } catch {
