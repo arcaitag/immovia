@@ -45,8 +45,8 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: colors.surface },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "Suchen", headerShown: false, tabBarIcon: icon("search", "search-outline") }} />
-      <Tabs.Screen name="merkliste" options={{ title: "Merkliste", tabBarIcon: icon("heart", "heart-outline") }} />
+      <Tabs.Screen name="index" options={{ title: "Start", headerShown: false, tabBarIcon: icon("home", "home-outline") }} />
+      <Tabs.Screen name="suchen" options={{ title: "Suchen", headerShown: false, tabBarIcon: icon("search", "search-outline") }} />
       <Tabs.Screen name="inserieren" options={{ title: "Inserieren", headerTitle: "Meine Immobilien", tabBarIcon: icon("add-circle", "add-circle-outline") }} />
       <Tabs.Screen
         name="nachrichten"

@@ -5,6 +5,8 @@ Level Security) und dieselben Konten.
 
 ## Umfang
 
+- Startseite und Inhaltsseiten wie die Website: Verkaufen, Bewerten, So funktioniert Immovia,
+  Für Immobilienfirmen, Ratgeber, Häufige Fragen, Kontaktformular (gleiche Texte und Bilder)
 - Suchen mit Filtern, Suche speichern (Suchaufträge), Inserat ansehen, teilen, melden
 - Merkliste, Anfragen und Nachrichten, Besichtigungstermin buchen
 - Konto: anmelden, registrieren, Profil, Passwort, Einwilligungen, Benachrichtigungen
@@ -17,6 +19,20 @@ Level Security) und dieselben Konten.
 
 Auf der Website bleiben: Firmenkonto, Administration, Dokument-Upload, Serien-Zeitfenster,
 einzelne Regler im Bilderstudio, Konto löschen und Datenexport.
+
+## Texte und Bilder der Website
+
+FAQ, Ratgeber und Marketingbilder sind Kopien der Website-Dateien (`src/lib/content/faq.ts`,
+`src/lib/content/ratgeber.ts`, `src/lib/marketing-images.ts`). Nach Änderungen an der Website:
+
+```
+node mobile/scripts/sync-content.mjs
+```
+
+Der Test `tests/unit/mobile/content-sync.test.ts` schlägt fehl, wenn die Kopien veraltet sind.
+Die Texte der Seiten selbst (Startseite, Verkaufen usw.) stehen in den Bildschirmen unter
+`mobile/src/app/` und müssen bei Änderungen an der Website von Hand nachgezogen werden.
+Datenschutz, AGB und Impressum öffnet die App von der Website, damit es nur eine Fassung gibt.
 
 ## Schnittstellen der Website für die App
 

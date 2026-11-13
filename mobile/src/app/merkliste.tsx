@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Stack } from "expo-router";
 import * as React from "react";
 import { FlatList, RefreshControl } from "react-native";
 
@@ -27,11 +28,18 @@ export default function FavoritesScreen() {
 
   if (loading) return <Loading />;
   if (!userId) {
-    return <SignInPrompt icon="heart-outline" title="Ihre Merkliste" description="Melden Sie sich an, um Inserate zu merken und auf allen Geräten wiederzufinden." />;
+    return (
+      <>
+        <Stack.Screen options={{ title: "Merkliste" }} />
+        <SignInPrompt icon="heart-outline" title="Ihre Merkliste" description="Melden Sie sich an, um Inserate zu merken und auf allen Geräten wiederzufinden." />
+      </>
+    );
   }
   const rows = (query.data ?? []).filter((row) => favorites.isFavorite(row.id));
 
   return (
+    <>
+    <Stack.Screen options={{ title: "Merkliste" }} />
     <FlatList
       contentContainerStyle={{ padding: space.lg, gap: space.lg }}
       data={rows}
@@ -48,5 +56,6 @@ export default function FavoritesScreen() {
         )
       }
     />
+    </>
   );
 }

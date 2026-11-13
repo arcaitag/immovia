@@ -44,7 +44,7 @@ export default function SavedSearchesScreen() {
   function run(search: SavedSearch) {
     const { filters } = filtersFromCriteria(search.criteria);
     // Zurück zur Suche; «t» sorgt dafür, dass derselbe Suchauftrag erneut angewendet wird
-    router.dismissTo({ pathname: "/", params: { suche: encodeFiltersParam(filters), t: String(Date.now()) } });
+    router.dismissTo({ pathname: "/suchen", params: { suche: encodeFiltersParam(filters), t: String(Date.now()) } });
   }
 
   function confirmDelete(search: SavedSearch) {
@@ -80,7 +80,7 @@ export default function SavedSearchesScreen() {
               icon="bookmark-outline"
               title="Noch keine Suchaufträge"
               description="Starten Sie eine Suche, setzen Sie Ihre Filter und wählen Sie «Suche speichern». Wir melden uns, sobald ein passendes Inserat veröffentlicht wird."
-              action={<Button title="Suche starten" onPress={() => router.dismissTo("/")} />}
+              action={<Button title="Suche starten" onPress={() => router.dismissTo("/suchen")} />}
             />
           }
           ListFooterComponent={

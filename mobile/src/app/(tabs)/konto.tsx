@@ -26,6 +26,18 @@ const SCREENS: { label: string; href: Href; icon: IconName }[] = [
   { label: "Einstellungen und Einwilligungen", href: "/konto/einstellungen", icon: "settings-outline" },
 ];
 
+/** Inhalte der Website, die es auch in der App gibt (ohne Anmeldung). */
+const CONTENT: { label: string; href: string; icon: IconName }[] = [
+  { label: "Merkliste", href: "/merkliste", icon: "heart-outline" },
+  { label: "Immobilie verkaufen", href: "/verkaufen", icon: "pricetag-outline" },
+  { label: "Immobilie bewerten", href: "/bewerten", icon: "speedometer-outline" },
+  { label: "So funktioniert Immovia", href: "/so-funktionierts", icon: "compass-outline" },
+  { label: "Ratgeber", href: "/ratgeber", icon: "book-outline" },
+  { label: "Häufige Fragen", href: "/faq", icon: "help-circle-outline" },
+  { label: "Für Immobilienfirmen", href: "/fuer-makler", icon: "business-outline" },
+  { label: "Kontakt", href: "/kontakt", icon: "mail-outline" },
+];
+
 /** Rechtliche Seiten der Website. */
 const LINKS: { label: string; path: string; icon: IconName }[] = [
   { label: "Datenschutz", path: "/datenschutz", icon: "shield-checkmark-outline" },
@@ -94,6 +106,21 @@ export default function AccountScreen() {
           })}
         </View>
       ) : null}
+
+      <View style={[styles.card, { flexDirection: "column", alignItems: "stretch", padding: 0 }]}>
+        {CONTENT.map((item, index) => (
+          <Pressable
+            key={item.href}
+            accessibilityRole="button"
+            onPress={() => router.push(item.href as Href)}
+            style={({ pressed }) => [styles.linkRow, index > 0 && { borderTopWidth: 1, borderTopColor: colors.border }, pressed && { backgroundColor: colors.mint100 }]}
+          >
+            <Ionicons name={item.icon} size={22} color={colors.forest} />
+            <Text style={[text.body, { flex: 1 }]}>{item.label}</Text>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+          </Pressable>
+        ))}
+      </View>
 
       <View style={[styles.card, { flexDirection: "column", alignItems: "stretch", padding: 0 }]}>
         {LINKS.map((link, index) => (
