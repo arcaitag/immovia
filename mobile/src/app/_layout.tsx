@@ -21,6 +21,10 @@ export default function RootLayout() {
             headerTitleStyle: { color: colors.foreground, fontWeight: "700" },
             headerBackButtonDisplayMode: "minimal",
             headerShadowVisible: false,
+            // Ab iOS 26 ist die Kopfzeile sonst durchsichtig und der Inhalt läuft darunter durch.
+            // Mit fester Hintergrundfarbe beginnt jede Seite unterhalb der Kopfzeile.
+            headerTransparent: false,
+            headerStyle: { backgroundColor: colors.surface },
             contentStyle: { backgroundColor: colors.surface },
           }}
         >
