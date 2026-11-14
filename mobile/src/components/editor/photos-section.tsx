@@ -71,14 +71,21 @@ export function PhotosSection({
     const result =
       source === "camera"
         ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.9 })
-        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.9, allowsMultipleSelection: true, selectionLimit: Math.min(10, Math.max(1, remaining)) });
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            quality: 0.9,
+            allowsMultipleSelection: true,
+            selectionLimit: Math.min(10, Math.max(1, remaining)),
+            // iPhone-Fotos liegen als HEIC vor; «compatible» lässt iOS sie als JPEG liefern
+            preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+          });
     if (result.canceled) return;
     onError(null);
     setUploading(result.assets.length);
     let failed: string | null = null;
     for (const asset of result.assets) {
       try {
-        await uploadPhoto(propertyId, { uri: asset.uri, mimeType: asset.mimeType });
+        await uploadPhoto(propertyId, { uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName });
       } catch (error) {
         failed = photoErrorMessage(error) ?? errorMessage(error);
       }

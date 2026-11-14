@@ -361,8 +361,21 @@ const EXT_BY_MIME: Record<string, "jpg" | "png" | "webp"> = { "image/jpeg": "jpg
  * Lädt ein Foto hoch: Original in den privaten Speicher, danach erzeugt der Server der Website
  * die öffentlichen Varianten ohne Standortdaten (gleiche Verarbeitung wie beim Upload im Browser).
  */
-export async function uploadPhoto(propertyId: string, asset: { uri: string; mimeType?: string | null }): Promise<void> {
-  const ext = EXT_BY_MIME[(asset.mimeType ?? "image/jpeg").toLowerCase()];
+const EXT_BY_SUFFIX: Record<string, "jpg" | "png" | "webp"> = { jpg: "jpg", jpeg: "jpg", png: "png", webp: "webp" };
+
+/** Format aus dem MIME-Typ; fehlt er oder ist er unbekannt, aus der Dateiendung (iOS meldet ihn nicht immer passend). */
+function photoExt(asset: { uri: string; mimeType?: string | null; fileName?: string | null }): "jpg" | "png" | "webp" | null {
+  const byMime = asset.mimeType ? EXT_BY_MIME[asset.mimeType.toLowerCase()] : undefined;
+  if (byMime) return byMime;
+  for (const name of [asset.uri, asset.fileName ?? ""]) {
+    const suffix = /\.([a-z0-9]+)(?:[?#].*)?$/i.exec(name)?.[1]?.toLowerCase();
+    if (suffix && EXT_BY_SUFFIX[suffix]) return EXT_BY_SUFFIX[suffix];
+  }
+  return null;
+}
+
+export async function uploadPhoto(propertyId: string, asset: { uri: string; mimeType?: string | null; fileName?: string | null }): Promise<void> {
+  const ext = photoExt(asset);
   if (!ext) throw new Error("unsupported_format");
   const imageId = Crypto.randomUUID();
   const path = `${propertyId}/${imageId}.${ext}`;
@@ -390,7 +403,7 @@ export async function uploadPhoto(propertyId: string, asset: { uri: string; mime
 
 export function photoErrorMessage(error: unknown): string | null {
   const message = error instanceof Error ? error.message : "";
-  if (message === "unsupported_format") return "Bitte wählen Sie ein JPG-, PNG- oder WebP-Bild.";
+  if (message === "unsupported_format") return "Dieses Bildformat wird nicht unterstützt. Bitte wählen Sie ein JPG-, PNG- oder WebP-Bild.";
   if (message === "too_large") return "Das Bild ist grösser als 25 MB.";
   if (message.startsWith("server:")) return message.slice(7);
   if (message === "processing_failed") return "Das Foto konnte nicht verarbeitet werden. Bitte versuchen Sie es erneut.";
