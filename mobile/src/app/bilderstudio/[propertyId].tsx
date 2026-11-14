@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import * as React from "react";
@@ -9,7 +9,9 @@ import { Badge, Button, EmptyState, Loading, Notice } from "@/components/ui";
 import { studioImages, type StudioImage } from "@/lib/api-studio";
 import { useAuth } from "@/lib/auth";
 import { imageUrl } from "@/lib/format";
+import { publishingSettings } from "@/lib/api-owner";
 import { errorMessage } from "@/lib/labels";
+import { usePhotoUpload } from "@/lib/photo-upload";
 import { colors, radius, space, text } from "@/lib/theme";
 
 /** Bilderstudio: alle Bilder eines Objekts, inkl. Designvorschlägen, die auf die Prüfung warten. */
@@ -17,7 +19,20 @@ export default function ImageStudioScreen() {
   const { propertyId } = useLocalSearchParams<{ propertyId: string }>();
   const { userId } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["studio-images", propertyId], queryFn: () => studioImages(propertyId), enabled: Boolean(userId) });
+  const rules = useQuery({ queryKey: ["publishing-rules"], queryFn: publishingSettings, enabled: Boolean(userId), staleTime: 600_000 });
+  // Vorschläge der KI zählen nicht als eigene Fotos
+  const ownPhotos = (query.data ?? []).filter((image) => image.status !== "review").length;
+  const upload = usePhotoUpload({
+    propertyId,
+    remaining: Math.max(0, (rules.data?.maxImages ?? 40) - ownPhotos),
+    onChanged: () => {
+      void query.refetch();
+      // Editor der Immobilie zeigt dieselben Fotos
+      void queryClient.invalidateQueries({ queryKey: ["workspace", propertyId] });
+    },
+  });
 
   const title = <Stack.Screen options={{ title: "Bilderstudio" }} />;
   if (!userId) {
@@ -64,6 +79,9 @@ export default function ImageStudioScreen() {
               <Text style={[text.body, { color: colors.muted }]}>
                 Fotos automatisch optimieren oder mit KI einen Designvorschlag erstellen. Das Original bleibt immer erhalten.
               </Text>
+              <Button title="Fotos hinzufügen" icon="camera-outline" variant="outline" loading={upload.uploading > 0} onPress={upload.choosePhotoSource} />
+              {upload.uploading > 0 ? <Notice tone="info">{upload.uploading === 1 ? "Ein Foto wird hochgeladen …" : `${upload.uploading} Fotos werden hochgeladen …`}</Notice> : null}
+              {upload.error ? <Notice tone="error">{upload.error}</Notice> : null}
               {openReviews > 0 ? (
                 <Notice tone="info">
                   {openReviews === 1
@@ -79,7 +97,13 @@ export default function ImageStudioScreen() {
             icon="images-outline"
             title="Noch keine Bilder"
             description="Laden Sie zuerst Fotos Ihrer Immobilie hoch. Danach können Sie sie hier optimieren."
-            action={<Button title="Fotos hochladen" icon="add" onPress={() => router.push({ pathname: "/objekt/[id]", params: { id: propertyId } })} />}
+            action={
+              <View style={{ gap: space.md, alignSelf: "stretch" }}>
+                <Button title="Fotos hochladen" icon="camera-outline" loading={upload.uploading > 0} onPress={upload.choosePhotoSource} />
+                {upload.uploading > 0 ? <Notice tone="info">{upload.uploading === 1 ? "Ein Foto wird hochgeladen …" : `${upload.uploading} Fotos werden hochgeladen …`}</Notice> : null}
+                {upload.error ? <Notice tone="error">{upload.error}</Notice> : null}
+              </View>
+            }
           />
         }
         renderItem={({ item, index }) => <Tile image={item} index={index} onPress={() => router.push({ pathname: "/bild/[imageId]", params: { imageId: item.id } })} />}

@@ -1,15 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import * as ImagePicker from "expo-image-picker";
 import * as React from "react";
-import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Card, editorStyles } from "@/components/editor/shared";
 import { Badge, Button, Field, Loading, Notice, SectionTitle, ToggleRow } from "@/components/ui";
-import { deletePhoto, photoErrorMessage, setCoverPhoto, uploadPhoto, type ImageRow } from "@/lib/api";
+import { deletePhoto, setCoverPhoto, type ImageRow } from "@/lib/api";
 import { CAPTION_MAX, reorderPhotos, updatePhotoDetails } from "@/lib/api-owner";
 import { imageUrl } from "@/lib/format";
 import { errorMessage } from "@/lib/labels";
+import { usePhotoUpload } from "@/lib/photo-upload";
 import { colors, radius, space, text } from "@/lib/theme";
 
 /** Fotos: hochladen, Titelbild, Bildunterschrift, Grundriss, Reihenfolge, löschen. */
@@ -26,8 +26,6 @@ export function PhotosSection({
   maxImages: number;
   onChanged: () => void;
 }) {
-  const [error, onError] = React.useState<string | null>(null);
-  const [uploading, setUploading] = React.useState(0);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [caption, setCaption] = React.useState("");
   const [working, setWorking] = React.useState(false);
@@ -35,6 +33,7 @@ export function PhotosSection({
   const selected = images.find((image) => image.id === selectedId) ?? null;
   const selectedIndex = selected ? images.indexOf(selected) : -1;
   const remaining = Math.max(0, maxImages - images.length);
+  const { choosePhotoSource, uploading, error, setError: onError } = usePhotoUpload({ propertyId, remaining, onChanged });
 
   function select(image: ImageRow) {
     if (selectedId === image.id) {
@@ -55,59 +54,6 @@ export function PhotosSection({
       onError(errorMessage(error));
     } finally {
       setWorking(false);
-    }
-  }
-
-  async function addPhotos(source: "library" | "camera") {
-    const permission = source === "camera" ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert(
-        "Zugriff nötig",
-        source === "camera" ? "Bitte erlauben Sie den Zugriff auf die Kamera in den Einstellungen." : "Bitte erlauben Sie den Zugriff auf Ihre Fotos in den Einstellungen.",
-      );
-      return;
-    }
-    // quality < 1: iOS liefert JPEG statt HEIC
-    const result =
-      source === "camera"
-        ? await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.9 })
-        : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ["images"],
-            quality: 0.9,
-            allowsMultipleSelection: true,
-            selectionLimit: Math.min(10, Math.max(1, remaining)),
-            // iPhone-Fotos liegen als HEIC vor; «compatible» lässt iOS sie als JPEG liefern
-            preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
-          });
-    if (result.canceled) return;
-    onError(null);
-    setUploading(result.assets.length);
-    let failed: string | null = null;
-    for (const asset of result.assets) {
-      try {
-        await uploadPhoto(propertyId, { uri: asset.uri, mimeType: asset.mimeType, fileName: asset.fileName });
-      } catch (error) {
-        failed = photoErrorMessage(error) ?? errorMessage(error);
-      }
-      setUploading((n) => Math.max(0, n - 1));
-      onChanged();
-    }
-    setUploading(0);
-    if (failed) onError(failed);
-  }
-
-  function choosePhotoSource() {
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions({ options: ["Abbrechen", "Foto aufnehmen", "Aus Fotos wählen"], cancelButtonIndex: 0 }, (i) => {
-        if (i === 1) void addPhotos("camera");
-        if (i === 2) void addPhotos("library");
-      });
-    } else {
-      Alert.alert("Foto hinzufügen", undefined, [
-        { text: "Foto aufnehmen", onPress: () => void addPhotos("camera") },
-        { text: "Aus Fotos wählen", onPress: () => void addPhotos("library") },
-        { text: "Abbrechen", style: "cancel" },
-      ]);
     }
   }
 
