@@ -32,9 +32,22 @@ export interface SearchRow {
   total_count: number;
 }
 
+/** Gewählter Ort aus den Vorschlägen: Gemeinde, PLZ, Kanton oder Umkreis um eine Adresse. */
+export interface PlaceFilter {
+  label: string;
+  municipality?: string;
+  postalCode?: string;
+  canton?: string;
+  lat?: number;
+  lng?: number;
+  radiusKm?: number;
+}
+
 export interface SearchFilters {
   offer: Enums<"offer_type"> | null;
+  /** Freitext (Ort, PLZ oder Titel); leer, wenn ein Ort aus den Vorschlägen gewählt ist. */
   query: string;
+  place: PlaceFilter | null;
   types: Enums<"property_type">[];
   priceMax: number | null;
   roomsMin: number | null;
@@ -42,7 +55,7 @@ export interface SearchFilters {
   sort: "newest" | "price_asc" | "price_desc";
 }
 
-export const EMPTY_FILTERS: SearchFilters = { offer: null, query: "", types: [], priceMax: null, roomsMin: null, areaMin: null, sort: "newest" };
+export const EMPTY_FILTERS: SearchFilters = { offer: null, query: "", place: null, types: [], priceMax: null, roomsMin: null, areaMin: null, sort: "newest" };
 
 export function activeFilterCount(f: SearchFilters): number {
   return f.types.length + (f.priceMax !== null ? 1 : 0) + (f.roomsMin !== null ? 1 : 0) + (f.areaMin !== null ? 1 : 0);
@@ -51,9 +64,17 @@ export function activeFilterCount(f: SearchFilters): number {
 export const PAGE_SIZE = 20;
 
 export async function searchListings(filters: SearchFilters, page: number): Promise<{ rows: SearchRow[]; total: number }> {
+  const place = filters.place;
+  const radius = place && typeof place.lat === "number" && typeof place.lng === "number" && place.radiusKm ? place.radiusKm : null;
   const { data, error } = await supabase.rpc("search_listings", {
     p_offer_type: filters.offer ?? undefined,
-    p_query: filters.query.trim() || undefined,
+    p_query: place ? undefined : filters.query.trim() || undefined,
+    p_municipality: place?.municipality || undefined,
+    p_postal_code: place?.postalCode || undefined,
+    p_canton: place?.canton || undefined,
+    p_lat: radius ? place?.lat : undefined,
+    p_lng: radius ? place?.lng : undefined,
+    p_radius_km: radius || undefined,
     p_property_types: filters.types.length ? filters.types : undefined,
     p_price_max: filters.priceMax ?? undefined,
     p_rooms_min: filters.roomsMin ?? undefined,

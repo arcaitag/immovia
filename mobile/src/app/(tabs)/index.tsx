@@ -3,17 +3,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter, type Href } from "expo-router";
 import * as React from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Accordion, CheckList, FeatureCard, IconTile, Section, TextLink, contentStyles, mint50, photo, useSiteLink, type IconName } from "@/components/content";
 import { AppHeader, Logo } from "@/components/app-header";
 import { ListingCard } from "@/components/listing-card";
 import { FadeUp, RiseWord, Swoosh } from "@/components/motion";
+import { PlaceSuggestions } from "@/components/place-suggestions";
 import { Badge, Button, Chip, Loading } from "@/components/ui";
-import { EMPTY_FILTERS, type SearchFilters } from "@/lib/api";
+import { EMPTY_FILTERS, type PlaceFilter, type SearchFilters } from "@/lib/api";
 import { encodeFiltersParam } from "@/lib/api-account";
 import { latestListings } from "@/lib/api-content";
+import { placeFromSuggestion } from "@/lib/api-places";
 import { HOME_FAQ } from "@/lib/content/faq";
 import { useFavorites } from "@/lib/favorites";
 import { formatNumber } from "@/lib/format";
@@ -397,6 +399,10 @@ function HeroSearch() {
   const open = useSiteLink();
   const [offer, setOffer] = React.useState<Offer>("sale");
   const [place, setPlace] = React.useState("");
+  // Aus den Vorschlägen gewählter Ort; gilt, solange sein Name unverändert im Feld steht
+  const [picked, setPicked] = React.useState<PlaceFilter | null>(null);
+  const [placeFocused, setPlaceFocused] = React.useState(false);
+  const chosen = picked && picked.label === place ? picked : null;
   const [typeGroup, setTypeGroup] = React.useState<string | null>(null);
   const [priceMax, setPriceMax] = React.useState<number | null>(null);
   const [roomsMin, setRoomsMin] = React.useState<number | null>(null);
@@ -414,7 +420,8 @@ function HeroSearch() {
     const filters: SearchFilters = {
       ...EMPTY_FILTERS,
       offer,
-      query: place.trim(),
+      query: chosen ? "" : place.trim(),
+      place: chosen,
       types: TYPE_GROUPS.find((g) => g.value === typeGroup)?.types ?? [],
       priceMax,
       roomsMin,
@@ -453,9 +460,22 @@ function HeroSearch() {
             returnKeyType="search"
             onSubmitEditing={submit}
             autoCorrect={false}
+            onFocus={() => setPlaceFocused(true)}
+            // kurze Verzögerung, damit ein Tipp auf einen Vorschlag noch ankommt
+            onBlur={() => setTimeout(() => setPlaceFocused(false), 150)}
             style={{ flex: 1, fontSize: 16, color: colors.foreground, paddingVertical: 12 }}
           />
         </View>
+        <PlaceSuggestions
+          query={place}
+          visible={placeFocused && !chosen}
+          onPick={(result) => {
+            const next = placeFromSuggestion(result);
+            setPicked(next);
+            setPlace(next.label);
+            Keyboard.dismiss();
+          }}
+        />
 
         {moreOpen ? (
           <View style={{ gap: space.md }}>

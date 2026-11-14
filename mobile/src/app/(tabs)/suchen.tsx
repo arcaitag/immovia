@@ -2,15 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as React from "react";
-import { FlatList, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Keyboard, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppHeader } from "@/components/app-header";
 import { ListingCard } from "@/components/listing-card";
+import { PlaceSuggestions } from "@/components/place-suggestions";
 import { SaveSearchSheet } from "@/components/save-search-sheet";
 import { Button, Chip, EmptyState, Field, Loading, Notice, SectionTitle } from "@/components/ui";
 import { EMPTY_FILTERS, PAGE_SIZE, activeFilterCount, searchListings, type SearchFilters } from "@/lib/api";
 import { decodeFiltersParam } from "@/lib/api-account";
+import { placeFromSuggestion, type PlaceSuggestion } from "@/lib/api-places";
 import { useAuth } from "@/lib/auth";
 import { useFavorites } from "@/lib/favorites";
 import { formatNumber, parseNumber } from "@/lib/format";
@@ -48,15 +50,33 @@ export default function SearchScreen() {
     const next = decodeFiltersParam(params.suche);
     if (next) {
       setFilters(next);
-      setQueryInput(next.query);
+      setQueryInput(next.place ? next.place.label : next.query);
     }
   }
 
-  // Eingabe erst nach kurzer Pause suchen
+  // Eingabe erst nach kurzer Pause suchen. Ein gewählter Ort bleibt, solange sein Name im Feld steht;
+  // wird der Text geändert, gilt wieder der Freitext.
   React.useEffect(() => {
-    const timer = setTimeout(() => setFilters((f) => (f.query === queryInput ? f : { ...f, query: queryInput })), 350);
+    const timer = setTimeout(
+      () =>
+        setFilters((f) => {
+          if (f.place) return f.place.label === queryInput ? f : { ...f, place: null, query: queryInput };
+          return f.query === queryInput ? f : { ...f, query: queryInput };
+        }),
+      350,
+    );
     return () => clearTimeout(timer);
   }, [queryInput]);
+
+  const [inputFocused, setInputFocused] = React.useState(false);
+  const showSuggestions = inputFocused && queryInput !== filters.place?.label;
+
+  function pickPlace(result: PlaceSuggestion) {
+    const place = placeFromSuggestion(result);
+    setQueryInput(place.label);
+    setFilters((f) => ({ ...f, query: "", place }));
+    Keyboard.dismiss();
+  }
 
   const search = useInfiniteQuery({
     queryKey: ["search", filters],
@@ -86,6 +106,9 @@ export default function SearchScreen() {
               onChangeText={setQueryInput}
               returnKeyType="search"
               autoCorrect={false}
+              onFocus={() => setInputFocused(true)}
+              // kurze Verzögerung, damit ein Tipp auf einen Vorschlag noch ankommt
+              onBlur={() => setTimeout(() => setInputFocused(false), 150)}
               style={styles.searchInput}
             />
             {queryInput ? (
@@ -108,6 +131,7 @@ export default function SearchScreen() {
             ) : null}
           </Pressable>
         </View>
+        <PlaceSuggestions query={queryInput} visible={showSuggestions} onPick={pickPlace} />
         <View style={{ flexDirection: "row", gap: space.sm }}>
           {OFFERS.map((o) => (
             <Chip key={o.label} label={o.label} selected={filters.offer === o.value} onPress={() => setFilters((f) => ({ ...f, offer: o.value }))} />
@@ -157,7 +181,7 @@ export default function SearchScreen() {
               title="Keine Treffer"
               description="Für diese Suche gibt es im Moment keine Inserate. Passen Sie Ort oder Filter an."
               action={
-                count > 0 || filters.query || filters.offer ? (
+                count > 0 || filters.query || filters.place || filters.offer ? (
                   <Button
                     title="Filter zurücksetzen"
                     variant="outline"
@@ -248,7 +272,7 @@ function FilterForm({ filters, onClose, onApply }: { filters: SearchFilters; onC
             variant="outline"
             style={{ flex: 1 }}
             onPress={() => {
-              onApply({ ...EMPTY_FILTERS, offer: filters.offer, query: filters.query });
+              onApply({ ...EMPTY_FILTERS, offer: filters.offer, query: filters.query, place: filters.place });
               onClose();
             }}
           />

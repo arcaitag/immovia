@@ -1,4 +1,4 @@
-import type { SearchFilters } from "@/lib/api";
+import type { PlaceFilter, SearchFilters } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { PROPERTY_TYPES, errorMessage } from "@/lib/labels";
 import { supabase, type Database, type Enums, type Tables } from "@/lib/supabase";
@@ -284,15 +284,27 @@ export type AlertFrequency = keyof typeof ALERT_FREQUENCIES;
 export type SavedCriteria = Record<string, unknown>;
 
 /** Kriterien, die die Suche der App anwenden kann. */
-const APP_KEYS = new Set(["offer", "types", "q", "price_max", "rooms_min", "area_min", "label"]);
+const APP_KEYS = new Set(["offer", "types", "q", "price_max", "rooms_min", "area_min", "label", "municipality", "postal_code", "canton", "lat", "lng", "radius"]);
 
 /** Filter der App → gespeicherte Kriterien (nur gesetzte Werte, wie toSavedCriteria der Website). */
 export function criteriaFromFilters(filters: SearchFilters): SavedCriteria {
   const criteria: SavedCriteria = {};
   if (filters.offer) criteria.offer = filters.offer;
   if (filters.types.length) criteria.types = filters.types.slice(0, 10);
+  const place = filters.place;
   const q = filters.query.trim().slice(0, 80);
-  if (q) criteria.q = q;
+  if (place) {
+    // Schlüssel wie auf der Website: Gemeinde, PLZ, Kanton oder Koordinaten mit Umkreis
+    criteria.label = place.label.slice(0, 120);
+    if (place.municipality) criteria.municipality = place.municipality.slice(0, 80);
+    if (place.postalCode) criteria.postal_code = place.postalCode;
+    if (place.canton) criteria.canton = place.canton;
+    if (typeof place.lat === "number" && typeof place.lng === "number" && place.radiusKm) {
+      criteria.lat = place.lat;
+      criteria.lng = place.lng;
+      criteria.radius = place.radiusKm;
+    }
+  } else if (q) criteria.q = q;
   if (filters.priceMax !== null && filters.priceMax >= 0) criteria.price_max = filters.priceMax;
   if (filters.roomsMin !== null && filters.roomsMin >= 0) criteria.rooms_min = filters.roomsMin;
   if (filters.areaMin !== null && filters.areaMin >= 0) criteria.area_min = filters.areaMin;
@@ -308,6 +320,20 @@ function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/** Ort aus gespeicherten Kriterien (Gemeinde, PLZ, Kanton oder Koordinaten mit Umkreis). */
+function placeFromCriteria(c: Record<string, unknown>): PlaceFilter | null {
+  const municipality = asText(c.municipality) || undefined;
+  const postalCode = /^[1-9]\d{3}$/.test(asText(c.postal_code)) ? asText(c.postal_code) : undefined;
+  const canton = /^[A-Z]{2}$/.test(asText(c.canton)) ? asText(c.canton) : undefined;
+  const lat = typeof c.lat === "number" ? c.lat : Number(c.lat);
+  const lng = typeof c.lng === "number" ? c.lng : Number(c.lng);
+  const radiusKm = asNumber(c.radius);
+  const hasRadius = Number.isFinite(lat) && Number.isFinite(lng) && c.lat != null && c.lng != null && radiusKm !== null && radiusKm >= 1 && radiusKm <= 100;
+  if (!municipality && !postalCode && !canton && !hasRadius) return null;
+  const label = asText(c.label) || municipality || postalCode || (canton ? `Kanton ${canton}` : "Umkreis");
+  return { label: label.slice(0, 120), municipality, postalCode, canton, ...(hasRadius ? { lat, lng, radiusKm: radiusKm ?? undefined } : {}) };
+}
+
 /**
  * Gespeicherte Kriterien → Filter der App. `partial` ist true, wenn der Suchauftrag (auf der Website
  * erstellt) Kriterien enthält, die die Suche der App nicht kennt – die App sucht dann breiter.
@@ -315,16 +341,14 @@ function asText(value: unknown): string {
 export function filtersFromCriteria(value: unknown): { filters: SearchFilters; partial: boolean } {
   const c = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
   const types = Array.isArray(c.types) ? c.types.filter((t): t is Enums<"property_type"> => typeof t === "string" && t in PROPERTY_TYPES) : [];
-  // Ort: Freitext der Suche, sonst Gemeinde oder PLZ eines Website-Suchauftrags
-  const query = asText(c.q) || asText(c.municipality) || asText(c.postal_code);
-  const usedPlace = !asText(c.q) && (asText(c.municipality) ? "municipality" : asText(c.postal_code) ? "postal_code" : null);
-  const partial = Object.entries(c).some(
-    ([key, v]) => !APP_KEYS.has(key) && key !== usedPlace && v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && !v.length),
-  );
+  const place = placeFromCriteria(c);
+  const query = place ? "" : asText(c.q);
+  const partial = Object.entries(c).some(([key, v]) => !APP_KEYS.has(key) && v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && !v.length));
   return {
     filters: {
       offer: c.offer === "sale" || c.offer === "rent" ? c.offer : null,
       query,
+      place,
       types,
       priceMax: asNumber(c.price_max),
       roomsMin: asNumber(c.rooms_min),
@@ -359,6 +383,13 @@ export function encodeFiltersParam(filters: SearchFilters): string {
   return JSON.stringify(filters);
 }
 
+function decodePlace(value: unknown): PlaceFilter | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const p = value as Record<string, unknown>;
+  // gleiche Prüfung wie bei gespeicherten Kriterien
+  return placeFromCriteria({ label: p.label, municipality: p.municipality, postal_code: p.postalCode, canton: p.canton, lat: p.lat, lng: p.lng, radius: p.radiusKm });
+}
+
 export function decodeFiltersParam(raw: string | undefined): SearchFilters | null {
   if (!raw) return null;
   try {
@@ -367,6 +398,7 @@ export function decodeFiltersParam(raw: string | undefined): SearchFilters | nul
     return {
       offer: v.offer === "sale" || v.offer === "rent" ? v.offer : null,
       query: typeof v.query === "string" ? v.query.slice(0, 80) : "",
+      place: decodePlace(v.place),
       types: Array.isArray(v.types) ? v.types.filter((t) => typeof t === "string" && t in PROPERTY_TYPES) : [],
       priceMax: asNumber(v.priceMax),
       roomsMin: asNumber(v.roomsMin),
