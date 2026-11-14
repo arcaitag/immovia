@@ -20,6 +20,25 @@ Level Security) und dieselben Konten.
 Auf der Website bleiben: Firmenkonto, Administration, Dokument-Upload, Serien-Zeitfenster,
 einzelne Regler im Bilderstudio, Konto löschen und Datenexport.
 
+## Installierte App und automatische Updates (TestFlight)
+
+Die App ist mit dem Expo-Projekt `@arcaitags-team/immovia` verknüpft (`app.json`, `eas.json`).
+Der Ablauf `.eas/workflows/deploy.yml` läuft bei jedem Push auf `main`:
+
+- nur App-Code geändert → Update wird veröffentlicht, die installierte App lädt es beim nächsten Öffnen
+  (beim ersten Öffnen im Hintergrund, sichtbar ab dem zweiten Öffnen)
+- native Änderung (Expo-Version, Icon, Berechtigungen, natives Paket) → neuer Build geht an TestFlight
+
+Einmalig nötig (Apple-Anmeldung, geht nur von Hand):
+
+```
+cd mobile
+npm install
+npx eas-cli@latest build --platform ios --profile production --auto-submit
+```
+
+Signaturschlüssel und der App-Store-Connect-Schlüssel liegen danach bei Expo, nicht im Repo.
+
 ## Texte und Bilder der Website
 
 FAQ, Ratgeber und Marketingbilder sind Kopien der Website-Dateien (`src/lib/content/faq.ts`,

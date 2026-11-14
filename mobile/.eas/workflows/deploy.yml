@@ -1,0 +1,45 @@
+# Läuft bei jedem Push auf main (Expo-Projekt mit GitHub verbunden, Base Directory «mobile»).
+# - Hat sich nur der App-Code geändert, wird ein Update veröffentlicht: die installierte App
+#   lädt es beim nächsten Öffnen.
+# - Hat sich etwas Natives geändert (Expo-Version, Icon, Berechtigungen, neue native Pakete),
+#   wird eine neue App gebaut und an TestFlight gesendet.
+name: App veröffentlichen
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  fingerprint:
+    name: Native Änderungen erkennen
+    type: fingerprint
+    environment: production
+  get_ios_build:
+    name: Passenden iOS-Build suchen
+    needs: [fingerprint]
+    type: get-build
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      profile: production
+  build_ios:
+    name: iOS-App bauen
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: production
+  submit_ios_build:
+    name: An TestFlight senden
+    needs: [build_ios]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+  publish_ios_update:
+    name: Update veröffentlichen
+    needs: [get_ios_build]
+    if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: update
+    params:
+      branch: production
+      platform: ios

@@ -12,7 +12,8 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSCameraUsageDescription": "Immovia verwendet die Kamera, damit Sie Fotos Ihrer Immobilie aufnehmen können.",
-        "NSPhotoLibraryUsageDescription": "Immovia greift auf Ihre Fotos zu, damit Sie Bilder Ihrer Immobilie hochladen können."
+        "NSPhotoLibraryUsageDescription": "Immovia greift auf Ihre Fotos zu, damit Sie Bilder Ihrer Immobilie hochladen können.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -47,6 +48,18 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "owner": "arcaitags-team",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/cee2da3a-6baf-4b51-829f-df3d1097aa93"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "cee2da3a-6baf-4b51-829f-df3d1097aa93"
+      }
     }
   }
 }
