@@ -653,16 +653,12 @@ export async function createDraftListing(propertyId: string, email: string | nul
   if (contactError) throw contactError;
 }
 
-/** Archiviert die Inserate (Trigger) und markiert die Immobilie als gelöscht (wie softDeleteProperty). */
+/**
+ * Archiviert die Inserate und markiert die Immobilie als gelöscht – über dieselbe
+ * Datenbankfunktion wie die Website (ein direktes Update lehnt die Zeilensicherheit ab).
+ */
 export async function softDeleteProperty(propertyId: string): Promise<void> {
-  const { data: listings, error: listError } = await supabase.from("listings").select("id").eq("property_id", propertyId).is("deleted_at", null);
-  if (listError) throw listError;
-  const now = new Date().toISOString();
-  for (const listing of listings ?? []) {
-    const { error } = await supabase.from("listings").update({ deleted_at: now }).eq("id", listing.id);
-    if (error) throw error;
-  }
-  const { error } = await supabase.from("properties").update({ deleted_at: now }).eq("id", propertyId);
+  const { error } = await supabase.rpc("soft_delete_property", { p_property: propertyId });
   if (error) throw error;
 }
 

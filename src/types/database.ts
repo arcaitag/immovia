@@ -3548,6 +3548,10 @@ export type Database = {
           reason: string | null;
         }[];
       };
+      soft_delete_property: {
+        Args: { p_property: string };
+        Returns: string[];
+      };
       submit_contact_request: {
         Args: { p_name: string; p_email: string; p_subject: string; p_message: string };
         Returns: string;

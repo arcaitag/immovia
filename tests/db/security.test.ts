@@ -55,6 +55,26 @@ describe("Szenario D: fremde IDs und private Daten", () => {
     });
   });
 
+  it("Eigentümer kann die eigene Immobilie löschen, Fremde und Besucher nicht", async () => {
+    await withSession(db, as(IDS.stranger), async (s) => {
+      await expectError(s.query("select public.soft_delete_property($1)", [IDS.property]), /forbidden/);
+    });
+    await withSession(db, { role: "anon" }, async (s) => {
+      await expectError(s.query("select public.soft_delete_property($1)", [IDS.property]), /permission denied/);
+    });
+    // Rollback am Ende der Sitzung: die Immobilie bleibt für die übrigen Tests bestehen
+    await withSession(db, as(IDS.seller), async (s) => {
+      await s.query("select public.soft_delete_property($1)", [IDS.property]);
+      expect(await s.query("select id from public.properties where id = $1", [IDS.property])).toHaveLength(0);
+      const listings = await s.query<{ status: string; deleted: boolean }>(
+        "select status, deleted_at is not null as deleted from public.listings where property_id = $1",
+        [IDS.property],
+      );
+      expect(listings.length).toBeGreaterThan(0);
+      expect(listings.every((l) => l.status === "archived" && l.deleted)).toBe(true);
+    });
+  });
+
   it("Besucher sehen nur den öffentlichen Ausschnitt: keine Strasse bei Standort «nur Ort», keine Objekttabelle", async () => {
     await withSession(db, anon, async (s) => {
       expect(await s.query("select id from public.properties")).toHaveLength(0);

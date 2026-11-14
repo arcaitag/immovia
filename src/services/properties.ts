@@ -437,8 +437,9 @@ export async function deleteRenovation(
 // ---------------------------------------------------------------------------
 
 /**
- * Archiviert das Inserat (Trigger setzt bei deleted_at den Status «archiviert»)
- * und markiert danach die Immobilie als gelöscht.
+ * Archiviert die Inserate (Trigger setzt bei deleted_at den Status «archiviert») und markiert
+ * die Immobilie als gelöscht. Läuft über die Datenbankfunktion soft_delete_property: Ein direktes
+ * Update lehnt die Zeilensicherheit ab, weil die gelöschte Zeile danach nicht mehr lesbar ist.
  */
 export async function softDeleteProperty(
   supabase: ServerSupabaseClient,
@@ -446,16 +447,7 @@ export async function softDeleteProperty(
   propertyId: string,
 ): Promise<{ publicSlugs: string[] }> {
   await loadManagedProperty(supabase, user, propertyId);
-  const listings = await getListingsForProperties(supabase, [propertyId]);
-  const now = new Date().toISOString();
-  const publicSlugs = listings
-    .filter((l) => (l.status === "published" || l.status === "reserved") && l.slug)
-    .map((l) => l.slug as string);
-  for (const listing of listings) {
-    const { error } = await supabase.from("listings").update({ deleted_at: now }).eq("id", listing.id);
-    if (error) throw fromDbError(error);
-  }
-  const { error } = await supabase.from("properties").update({ deleted_at: now }).eq("id", propertyId);
+  const { data, error } = await supabase.rpc("soft_delete_property", { p_property: propertyId });
   if (error) throw fromDbError(error);
-  return { publicSlugs };
+  return { publicSlugs: data ?? [] };
 }
