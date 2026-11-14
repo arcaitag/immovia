@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as React from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Card, editorStyles } from "@/components/editor/shared";
-import { Badge, Button, Field, Loading, Notice, SectionTitle, ToggleRow } from "@/components/ui";
+import { Badge, Button, Field, Notice, SectionTitle, ToggleRow } from "@/components/ui";
 import { deletePhoto, setCoverPhoto, type ImageRow } from "@/lib/api";
 import { CAPTION_MAX, reorderPhotos, updatePhotoDetails } from "@/lib/api-owner";
 import { imageUrl } from "@/lib/format";
@@ -124,8 +124,10 @@ export function PhotosSection({
           );
         })}
         {Array.from({ length: uploading }).map((_, i) => (
-          <View key={`up-${i}`} style={[styles.photo, { alignItems: "center", justifyContent: "center" }]}>
-            <Loading />
+          <View key={`up-${i}`} style={styles.photo}>
+            <View style={styles.centered}>
+              <ActivityIndicator color={colors.brand} />
+            </View>
           </View>
         ))}
         {remaining > 0 ? (
@@ -136,8 +138,11 @@ export function PhotosSection({
             onPress={choosePhotoSource}
             style={[styles.photo, styles.addPhoto, uploading > 0 && { opacity: 0.5 }]}
           >
-            <Ionicons name="camera-outline" size={26} color={colors.forest} />
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.forest }}>Hinzufügen</Text>
+            {/* Eigene Fläche zum Zentrieren: bei Kacheln mit Seitenverhältnis rutscht der Inhalt auf iOS sonst nach unten */}
+            <View style={styles.centered}>
+              <Ionicons name="camera-outline" size={26} color={colors.forest} />
+              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.forest }}>Hinzufügen</Text>
+            </View>
           </Pressable>
         ) : null}
       </View>
@@ -195,7 +200,8 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   photo: { width: "31.5%", aspectRatio: 1, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.mutedBg },
   photoSelected: { borderWidth: 3, borderColor: colors.brand },
-  addPhoto: { alignItems: "center", justifyContent: "center", gap: 4, borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.brand, backgroundColor: colors.mint100 },
+  centered: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center", gap: 4 },
+  addPhoto: { borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.brand, backgroundColor: colors.mint100 },
   badgesTop: { position: "absolute", left: 6, top: 6, gap: 4 },
   badgeBottom: { position: "absolute", left: 6, bottom: 6 },
   panel: { gap: space.md, padding: space.md, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
