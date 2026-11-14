@@ -5,6 +5,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as React from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { UpdateCard } from "@/components/app-updates";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { Button, Loading } from "@/components/ui";
 import { unreadNotificationCount } from "@/lib/api-account";
@@ -137,6 +138,8 @@ export default function AccountScreen() {
           </Pressable>
         ))}
       </View>
+
+      <UpdateCard />
 
       {userId ? (
         <>

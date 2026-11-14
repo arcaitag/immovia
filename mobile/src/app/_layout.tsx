@@ -3,6 +3,7 @@ import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
 import * as React from "react";
 
+import { AutoUpdate } from "@/components/app-updates";
 import { AuthProvider } from "@/lib/auth";
 import { colors } from "@/lib/theme";
 
@@ -36,6 +37,7 @@ export default function RootLayout() {
           <Stack.Screen name="login" options={{ title: "Anmelden", presentation: "modal" }} />
           <Stack.Screen name="registrieren" options={{ title: "Konto erstellen", presentation: "modal" }} />
         </Stack>
+        <AutoUpdate />
       </AuthProvider>
     </QueryClientProvider>
   );
