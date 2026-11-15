@@ -271,13 +271,13 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.bigCardText}>Helligkeit, Kontrast, Weissabgleich und Schärfe optimieren, Horizont begradigen. Das Original bleibt immer erhalten.</Text>
             <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.beforeAfter}>
-              <View style={{ flex: 1, aspectRatio: 4 / 3 }}>
+              <View style={{ flex: 1 }}>
                 <Image source={photo(MARKETING_IMAGES.interior.src, 600)} style={StyleSheet.absoluteFill} contentFit="cover" />
                 {/* «Vorher»: dunkler und flauer */}
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(70,70,66,0.32)" }]} />
                 <Text style={styles.photoTag}>Vorher</Text>
               </View>
-              <View style={{ flex: 1, aspectRatio: 4 / 3, borderLeftWidth: 2, borderLeftColor: colors.white }}>
+              <View style={{ flex: 1, borderLeftWidth: 2, borderLeftColor: colors.white }}>
                 <Image source={photo(MARKETING_IMAGES.interior.src, 600)} style={StyleSheet.absoluteFill} contentFit="cover" />
                 <Text style={styles.photoTag}>Nachher</Text>
               </View>
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
   bigCardText: { fontSize: 16, lineHeight: 23, color: colors.muted, marginTop: 4 },
   dossier: { flex: 1, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, overflow: "hidden" },
   dossierBand: { position: "absolute", left: 0, right: 0, bottom: 0, height: "33%" },
-  beforeAfter: { flexDirection: "row", borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: "hidden", marginTop: space.sm },
+  beforeAfter: { aspectRatio: 8 / 3, flexDirection: "row", borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: "hidden", marginTop: space.sm },
   photoTag: { position: "absolute", left: 8, top: 8, fontSize: 11, fontWeight: "600", color: colors.foreground, backgroundColor: "rgba(255,255,255,0.9)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: "hidden" },
   bullet: { flexDirection: "row", alignItems: "center", gap: space.md },
   bulletText: { flex: 1, fontSize: 15.5, lineHeight: 22, color: colors.foreground },

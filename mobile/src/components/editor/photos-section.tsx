@@ -86,6 +86,12 @@ export function PhotosSection({
 
   const captionChanged = selected ? caption.trim() !== (selected.caption ?? "") : false;
 
+  // Drei quadratische Kacheln pro Zeile. Die Grösse wird aus der gemessenen Breite gerechnet:
+  // Prozentbreite mit Seitenverhältnis fällt auf iOS in umbrechenden Zeilen auf wenige Punkte Höhe zusammen.
+  const [gridWidth, setGridWidth] = React.useState(0);
+  const side = gridWidth > 0 ? Math.floor((gridWidth - 2 * space.sm) / 3) : 100;
+  const tileSize = { width: side, height: side };
+
   return (
     <Card>
       <SectionTitle>Fotos</SectionTitle>
@@ -93,7 +99,7 @@ export function PhotosSection({
         {minImages > 1 ? `Mindestens ${minImages} Fotos` : "Mindestens ein Foto"}, höchstens {maxImages}. Das Titelbild erscheint in der Suche. Standortdaten werden aus
         den Fotos entfernt. Tippen Sie auf ein Foto, um es zu bearbeiten.
       </Text>
-      <View style={styles.grid}>
+      <View style={styles.grid} onLayout={(event) => setGridWidth(event.nativeEvent.layout.width)}>
         {images.map((image, index) => {
           const src = imageUrl(image, "sm");
           const isSelected = image.id === selectedId;
@@ -104,7 +110,7 @@ export function PhotosSection({
               accessibilityState={{ selected: isSelected }}
               accessibilityLabel={`Foto ${index + 1}${image.is_cover ? ", Titelbild" : ""}${image.is_floor_plan ? ", Grundriss" : ""}, bearbeiten`}
               onPress={() => select(image)}
-              style={[styles.photo, isSelected && styles.photoSelected]}
+              style={[styles.photo, tileSize, isSelected && styles.photoSelected]}
             >
               {src ? <Image source={src} style={StyleSheet.absoluteFill} contentFit="cover" /> : null}
               <View style={styles.badgesTop}>
@@ -124,7 +130,7 @@ export function PhotosSection({
           );
         })}
         {Array.from({ length: uploading }).map((_, i) => (
-          <View key={`up-${i}`} style={styles.photo}>
+          <View key={`up-${i}`} style={[styles.photo, tileSize]}>
             <View style={styles.centered}>
               <ActivityIndicator color={colors.brand} />
             </View>
@@ -136,7 +142,7 @@ export function PhotosSection({
             accessibilityLabel="Foto hinzufügen"
             disabled={uploading > 0}
             onPress={choosePhotoSource}
-            style={[styles.photo, styles.addPhoto, uploading > 0 && { opacity: 0.5 }]}
+            style={[styles.photo, tileSize, styles.addPhoto, uploading > 0 && { opacity: 0.5 }]}
           >
             {/* Eigene Fläche zum Zentrieren: bei Kacheln mit Seitenverhältnis rutscht der Inhalt auf iOS sonst nach unten */}
             <View style={styles.centered}>
@@ -198,7 +204,7 @@ export function PhotosSection({
 
 const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  photo: { width: "31.5%", aspectRatio: 1, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.mutedBg },
+  photo: { borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.mutedBg },
   photoSelected: { borderWidth: 3, borderColor: colors.brand },
   centered: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center", gap: 4 },
   addPhoto: { borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.brand, backgroundColor: colors.mint100 },

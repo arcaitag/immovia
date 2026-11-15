@@ -13,6 +13,7 @@ const {
   mapGatewayError,
   parseEditResponse,
   resolveGatewayToken,
+  usesChatApi,
   vercelGatewayProvider,
   DEFAULT_IMAGE_MODEL,
 } = await import("@/lib/images/ai-providers/vercel-gateway");
@@ -144,17 +145,32 @@ describe("Anbieter vercel-ai-gateway", () => {
     expect(vercelGatewayProvider.capabilities).toEqual(["declutter", "virtual_staging"]);
   });
 
-  it("ruft /v1/images/edits mit dem Standardmodell auf und liefert Bild, Modell und Kostenschätzung", async () => {
+  const chatBody = { choices: [{ message: { role: "assistant", content: "", images: [{ type: "image_url", image_url: { url: `data:image/png;base64,${png.toString("base64")}` } }] } }] };
+
+  it("ruft Gemini-Bildmodelle über /v1/chat/completions auf und liefert Bild, Modell und Kostenschätzung", async () => {
     process.env.AI_GATEWAY_API_KEY = "key";
-    const fetchMock = vi.fn(async () => jsonResponse(200, { data: [{ b64_json: png.toString("base64") }] }));
+    const fetchMock = vi.fn(async () => jsonResponse(200, chatBody));
     vi.stubGlobal("fetch", fetchMock);
     const output = await vercelGatewayProvider.run("declutter", input);
     expect(output).toMatchObject({ model: DEFAULT_IMAGE_MODEL, costUsd: 0.067 });
     expect(output.image).toEqual(png);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("https://ai-gateway.vercel.sh/v1/images/edits");
+    // Auf /v1/images/edits lehnt das Gateway Gemini ab («is a language model, not an image model»)
+    expect(url).toBe("https://ai-gateway.vercel.sh/v1/chat/completions");
     expect(init.headers).toMatchObject({ Authorization: "Bearer key" });
-    expect(JSON.parse(String(init.body))).toMatchObject({ model: DEFAULT_IMAGE_MODEL, providerOptions: { gateway: { zeroDataRetention: true } } });
+    const body = JSON.parse(String(init.body));
+    expect(body).toMatchObject({ model: DEFAULT_IMAGE_MODEL, modalities: ["text", "image"], stream: false, providerOptions: { gateway: { disallowPromptTraining: true, zeroDataRetention: true } } });
+    expect(body.messages[0].content[0]).toMatchObject({ type: "text" });
+    expect(body.messages[0].content[1]).toEqual({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${input.image.toString("base64")}` } });
+  });
+
+  it("meldet eine Chat-Antwort ohne Bild als endgültigen Fehler", async () => {
+    process.env.AI_GATEWAY_API_KEY = "key";
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(200, { choices: [{ message: { role: "assistant", content: "Das kann ich nicht." } }] })));
+    await expect(vercelGatewayProvider.run("declutter", input)).rejects.toMatchObject({ permanent: true, message: expect.stringContaining("kein Bild geliefert") });
+    expect(usesChatApi("google/gemini-3.1-flash-image")).toBe(true);
+    expect(usesChatApi("bfl/flux-3-image")).toBe(false);
   });
 
   it("verwendet IMAGE_AI_MODEL, IMAGE_AI_SIZE und IMAGE_AI_ZDR=0", async () => {
@@ -166,6 +182,7 @@ describe("Anbieter vercel-ai-gateway", () => {
     vi.stubGlobal("fetch", fetchMock);
     const output = await vercelGatewayProvider.run("virtual_staging", input);
     expect(output).toMatchObject({ model: "bfl/flux-3-image", costUsd: 0.07 });
+    expect((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[0]).toBe("https://ai-gateway.vercel.sh/v1/images/edits");
     const body = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body));
     expect(body).toMatchObject({ model: "bfl/flux-3-image", size: "1536x1536", providerOptions: { gateway: { disallowPromptTraining: true } } });
     expect(body.providerOptions.gateway.zeroDataRetention).toBeUndefined();
@@ -177,7 +194,7 @@ describe("Anbieter vercel-ai-gateway", () => {
     const retrying = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse(503, { error: { message: "überlastet" } }))
-      .mockResolvedValueOnce(jsonResponse(200, { data: [{ b64_json: png.toString("base64") }] }));
+      .mockResolvedValueOnce(jsonResponse(200, chatBody));
     vi.stubGlobal("fetch", retrying);
     await expect(vercelGatewayProvider.run("declutter", input)).resolves.toMatchObject({ image: png });
     expect(retrying).toHaveBeenCalledTimes(2);

@@ -89,6 +89,56 @@ export function buildEditRequest(capability: ImageAiCapability, input: ImageAiIn
   };
 }
 
+/**
+ * Zwei Arten von Bildmodellen im Gateway:
+ * - reine Bildmodelle (Flux, GPT Image …) → /v1/images/edits
+ * - multimodale Sprachmodelle, die Bilder ausgeben (Gemini «Nano Banana») → /v1/chat/completions
+ *   mit modalities ["text", "image"]. Auf /v1/images/edits lehnt das Gateway sie mit 400 ab.
+ */
+export function usesChatApi(model: string): boolean {
+  return model.startsWith("google/");
+}
+
+export interface ChatRequestBody {
+  model: string;
+  messages: Array<{ role: "user"; content: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> }>;
+  modalities: ["text", "image"];
+  stream: false;
+  providerOptions: { gateway: { disallowPromptTraining: true; zeroDataRetention?: true } };
+}
+
+export function buildChatRequest(capability: ImageAiCapability, input: ImageAiInput, options: { model: string; zeroDataRetention: boolean }): ChatRequestBody {
+  return {
+    model: options.model,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: buildImageAiPrompt(capability, { roomType: input.roomType, style: input.style }) },
+          { type: "image_url", image_url: { url: `data:${input.mimeType};base64,${input.image.toString("base64")}` } },
+        ],
+      },
+    ],
+    modalities: ["text", "image"],
+    stream: false,
+    providerOptions: { gateway: { disallowPromptTraining: true, ...(options.zeroDataRetention ? { zeroDataRetention: true as const } : {}) } },
+  };
+}
+
+/** Liest das erste Bild aus einer Chat-Antwort (choices[0].message.images[].image_url.url als Data-URL). */
+export function parseChatResponse(body: unknown): Buffer {
+  const message = (body as { choices?: Array<{ message?: { content?: unknown; images?: Array<{ image_url?: { url?: unknown } }> } }> } | null)?.choices?.[0]?.message;
+  const url = Array.isArray(message?.images) ? message.images.map((image) => image?.image_url?.url).find((value): value is string => typeof value === "string") : undefined;
+  const buffer = url ? decodeDataUrl(url) : null;
+  if (!buffer || buffer.length < 100) {
+    // Das Modell hat nur Text geantwortet (z. B. eine Rückfrage oder Ablehnung) – für das Protokoll festhalten
+    const text = typeof message?.content === "string" ? message.content.slice(0, 300) : "";
+    console.error(`[bild-ki] Antwort ohne Bild${text ? `: ${text}` : ""}`);
+    throw new ImageAiProviderError("Die Bild-KI hat kein Bild geliefert. Es wurde nichts verändert.", true);
+  }
+  return buffer;
+}
+
 /** Text der Fehlermeldung des Gateways (für das Protokoll, nicht für die Oberfläche). */
 export function gatewayErrorDetail(body: unknown): string {
   if (!body || typeof body !== "object") return typeof body === "string" ? body.slice(0, 500) : "";
@@ -137,10 +187,10 @@ export function parseEditResponse(body: unknown): Buffer {
   return buffer;
 }
 
-async function callGateway(body: EditRequestBody, token: string): Promise<Buffer> {
+async function callGateway(path: "/images/edits" | "/chat/completions", body: EditRequestBody | ChatRequestBody, token: string): Promise<Buffer> {
   let response: Response;
   try {
-    response = await fetch(`${GATEWAY_BASE_URL}/images/edits`, {
+    response = await fetch(`${GATEWAY_BASE_URL}${path}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -159,10 +209,10 @@ async function callGateway(body: EditRequestBody, token: string): Promise<Buffer
   }
   const json: unknown = await response.json().catch(() => null);
   if (!response.ok) {
-    console.error(`[bild-ki] Gateway-Fehler ${response.status} (${body.model}): ${gatewayErrorDetail(json)}`);
+    console.error(`[bild-ki] Gateway-Fehler ${response.status} (${body.model}, ${path}): ${gatewayErrorDetail(json)}`);
     throw mapGatewayError(response.status);
   }
-  return parseEditResponse(json);
+  return path === "/chat/completions" ? parseChatResponse(json) : parseEditResponse(json);
 }
 
 export const vercelGatewayProvider: ImageAiProvider = {
@@ -184,17 +234,20 @@ export const vercelGatewayProvider: ImageAiProvider = {
     }
     const model = imageModel();
     const size = serverEnv.imageAiSize;
-    const body = buildEditRequest(capability, input, { model, size, zeroDataRetention: serverEnv.imageAiZeroDataRetention });
+    const zeroDataRetention = serverEnv.imageAiZeroDataRetention;
+    const chat = usesChatApi(model);
+    const path = chat ? "/chat/completions" : "/images/edits";
+    const body = chat ? buildChatRequest(capability, input, { model, zeroDataRetention }) : buildEditRequest(capability, input, { model, size, zeroDataRetention });
 
     const started = Date.now();
     let image: Buffer;
     try {
-      image = await callGateway(body, token);
+      image = await callGateway(path, body, token);
     } catch (error) {
       const retry = error instanceof ImageAiProviderError && !error.permanent && Date.now() - started < RETRY_IF_FAILED_WITHIN_MS;
       if (!retry) throw error;
       await new Promise((resolve) => setTimeout(resolve, 2_000));
-      image = await callGateway(body, token);
+      image = await callGateway(path, body, token);
     }
     return { image, mimeType: "image/png", model, costUsd: estimateImageCostUsd(model, size) };
   },
