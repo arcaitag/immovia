@@ -43,7 +43,7 @@ export function useSiteLink(): (path: string) => void {
         return;
       }
       if (clean.startsWith("/dashboard")) return push(userId ? "/inserieren" : "/login");
-      if (clean === "/immobilien" || clean === "/kaufen" || clean === "/mieten") return push("/suchen");
+      if (clean === "/immobilien" || clean === "/kaufen" || clean === "/mieten") return router.navigate("/");
       if (clean === "/registrieren") return push("/registrieren");
       if (["/verkaufen", "/bewerten", "/so-funktionierts", "/fuer-makler", "/faq", "/kontakt", "/ratgeber"].includes(clean)) return push(clean);
       if (clean.startsWith("/ratgeber/")) return push(clean);

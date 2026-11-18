@@ -1,55 +1,27 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter, type Href } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
+import { Stack, useRouter, type Href } from "expo-router";
 import * as React from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { UpdateCard } from "@/components/app-updates";
 import { SignInPrompt } from "@/components/sign-in-prompt";
 import { Button, Loading } from "@/components/ui";
-import { unreadNotificationCount } from "@/lib/api-account";
 import { useAuth } from "@/lib/auth";
-import { CONFIG } from "@/lib/config";
 import { supabase } from "@/lib/supabase";
 import { colors, radius, space, text } from "@/lib/theme";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
-/** Bereiche in der App (nur angemeldet). */
+/** Seiten rund um das eigene Konto. Alles andere steht im Reiter «Mehr». */
 const SCREENS: { label: string; href: Href; icon: IconName }[] = [
-  { label: "Benachrichtigungen", href: "/benachrichtigungen", icon: "notifications-outline" },
-  { label: "Suchaufträge", href: "/suchauftraege", icon: "bookmark-outline" },
-  // Der Bildschirm «/assistent» gehört zu einem anderen Bereich der App
-  { label: "KI-Assistent", href: "/assistent" as never, icon: "sparkles-outline" },
   { label: "Profil", href: "/konto/profil", icon: "person-circle-outline" },
   { label: "Passwort ändern", href: "/konto/passwort", icon: "key-outline" },
   { label: "Einstellungen und Einwilligungen", href: "/konto/einstellungen", icon: "settings-outline" },
 ];
 
-/** Inhalte der Website, die es auch in der App gibt (ohne Anmeldung). */
-const CONTENT: { label: string; href: string; icon: IconName }[] = [
-  { label: "Merkliste", href: "/merkliste", icon: "heart-outline" },
-  { label: "Immobilie verkaufen", href: "/verkaufen", icon: "pricetag-outline" },
-  { label: "Immobilie bewerten", href: "/bewerten", icon: "speedometer-outline" },
-  { label: "So funktioniert Immovia", href: "/so-funktionierts", icon: "compass-outline" },
-  { label: "Ratgeber", href: "/ratgeber", icon: "book-outline" },
-  { label: "Häufige Fragen", href: "/faq", icon: "help-circle-outline" },
-  { label: "Für Immobilienfirmen", href: "/fuer-makler", icon: "business-outline" },
-  { label: "Kontakt", href: "/kontakt", icon: "mail-outline" },
-];
-
-/** Rechtliche Seiten der Website. */
-const LINKS: { label: string; path: string; icon: IconName }[] = [
-  { label: "Datenschutz", path: "/datenschutz", icon: "shield-checkmark-outline" },
-  { label: "AGB", path: "/agb", icon: "document-text-outline" },
-  { label: "Impressum", path: "/impressum", icon: "information-circle-outline" },
-];
-
 export default function AccountScreen() {
   const { userId, session, loading, signOut } = useAuth();
   const router = useRouter();
-  const unread = useQuery({ queryKey: ["notifications-unread", userId], enabled: Boolean(userId), refetchInterval: 60_000, queryFn: unreadNotificationCount });
   const profile = useQuery({
     queryKey: ["profile", userId],
     enabled: Boolean(userId),
@@ -61,11 +33,11 @@ export default function AccountScreen() {
 
   if (loading) return <Loading />;
 
-  const open = (path: string) => WebBrowser.openBrowserAsync(`${CONFIG.siteUrl}${path}`).catch(() => undefined);
   const name = [profile.data?.first_name, profile.data?.last_name].filter(Boolean).join(" ") || profile.data?.display_name || "";
 
   return (
     <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
+      <Stack.Screen options={{ title: "Mein Konto" }} />
       {userId ? (
         <View style={styles.card}>
           <View style={styles.avatar}>
@@ -85,61 +57,21 @@ export default function AccountScreen() {
       {userId ? (
         <View style={[styles.card, { flexDirection: "column", alignItems: "stretch", padding: 0 }]}>
           {SCREENS.map((screen, index) => {
-            const count = screen.href === "/benachrichtigungen" ? (unread.data ?? 0) : 0;
             return (
               <Pressable
                 key={screen.label}
                 accessibilityRole="button"
-                accessibilityLabel={count ? `${screen.label}, ${count} ungelesen` : screen.label}
                 onPress={() => router.push(screen.href)}
                 style={({ pressed }) => [styles.linkRow, index > 0 && { borderTopWidth: 1, borderTopColor: colors.border }, pressed && { backgroundColor: colors.mint100 }]}
               >
                 <Ionicons name={screen.icon} size={22} color={colors.forest} />
                 <Text style={[text.body, { flex: 1 }]}>{screen.label}</Text>
-                {count ? (
-                  <View style={styles.count}>
-                    <Text style={{ color: colors.white, fontSize: 12.5, fontWeight: "700" }}>{count > 99 ? "99+" : count}</Text>
-                  </View>
-                ) : null}
                 <Ionicons name="chevron-forward" size={18} color={colors.muted} />
               </Pressable>
             );
           })}
         </View>
       ) : null}
-
-      <View style={[styles.card, { flexDirection: "column", alignItems: "stretch", padding: 0 }]}>
-        {CONTENT.map((item, index) => (
-          <Pressable
-            key={item.href}
-            accessibilityRole="button"
-            onPress={() => router.push(item.href as Href)}
-            style={({ pressed }) => [styles.linkRow, index > 0 && { borderTopWidth: 1, borderTopColor: colors.border }, pressed && { backgroundColor: colors.mint100 }]}
-          >
-            <Ionicons name={item.icon} size={22} color={colors.forest} />
-            <Text style={[text.body, { flex: 1 }]}>{item.label}</Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
-          </Pressable>
-        ))}
-      </View>
-
-      <View style={[styles.card, { flexDirection: "column", alignItems: "stretch", padding: 0 }]}>
-        {LINKS.map((link, index) => (
-          <Pressable
-            key={link.path}
-            accessibilityRole="link"
-            accessibilityHint="Öffnet die Website"
-            onPress={() => open(link.path)}
-            style={({ pressed }) => [styles.linkRow, index > 0 && { borderTopWidth: 1, borderTopColor: colors.border }, pressed && { backgroundColor: colors.mint100 }]}
-          >
-            <Ionicons name={link.icon} size={22} color={colors.forest} />
-            <Text style={[text.body, { flex: 1 }]}>{link.label}</Text>
-            <Ionicons name="open-outline" size={18} color={colors.muted} />
-          </Pressable>
-        ))}
-      </View>
-
-      <UpdateCard />
 
       {userId ? (
         <>
@@ -176,6 +108,5 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.mint100, alignItems: "center", justifyContent: "center" },
-  count: { minWidth: 24, height: 24, paddingHorizontal: 7, borderRadius: 12, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
   linkRow: { flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, minHeight: 56 },
 });

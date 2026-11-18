@@ -187,6 +187,12 @@ export interface ConversationRow {
   unread_count: number;
 }
 
+/** Summe der ungelesenen Nachrichten über alle Gespräche (Zeichen am Reiter «Mehr» und im Menü). */
+export async function unreadMessageCount(): Promise<number> {
+  const { data } = await supabase.rpc("get_my_conversations", { p_archived: false });
+  return (data ?? []).reduce((sum, c) => sum + (c.unread_count ?? 0), 0);
+}
+
 export async function conversations(): Promise<ConversationRow[]> {
   const { data, error } = await supabase.rpc("get_my_conversations", { p_archived: false });
   if (error) throw error;

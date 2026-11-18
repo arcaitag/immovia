@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import { useFocusEffect, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 import * as React from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 
@@ -26,10 +26,17 @@ export default function ConversationsScreen() {
 
   if (loading) return <Loading />;
   if (!userId) {
-    return <SignInPrompt icon="chatbubbles-outline" title="Ihre Nachrichten" description="Melden Sie sich an, um Anbieter zu kontaktieren und Anfragen zu beantworten." />;
+    return (
+      <>
+        <Stack.Screen options={{ title: "Nachrichten" }} />
+        <SignInPrompt icon="chatbubbles-outline" title="Ihre Nachrichten" description="Melden Sie sich an, um Anbieter zu kontaktieren und Anfragen zu beantworten." />
+      </>
+    );
   }
 
   return (
+    <>
+    <Stack.Screen options={{ title: "Nachrichten" }} />
     <FlatList
       contentContainerStyle={{ padding: space.lg, gap: space.sm }}
       data={query.data ?? []}
@@ -80,6 +87,7 @@ export default function ConversationsScreen() {
         )
       }
     />
+    </>
   );
 }
 

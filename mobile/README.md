@@ -5,7 +5,9 @@ Level Security) und dieselben Konten.
 
 ## Umfang
 
-- Startseite und Inhaltsseiten wie die Website: Verkaufen, Bewerten, So funktioniert Immovia,
+- Aufbau: Die Hauptseite zeigt nur Suchmaske und Inserate. Reiter: Suche, Merkliste, Suchabos,
+  Inserate, Mehr. Im Reiter «Mehr» stehen Konto, Nachrichten und alle Inhaltsseiten.
+- Inhaltsseiten wie die Website: Verkaufen, Bewerten, So funktioniert Immovia,
   Für Immobilienfirmen, Ratgeber, Häufige Fragen, Kontaktformular (gleiche Texte und Bilder)
 - Suchen mit Filtern, Suche speichern (Suchaufträge), Inserat ansehen, teilen, melden
 - Merkliste, Anfragen und Nachrichten, Besichtigungstermin buchen

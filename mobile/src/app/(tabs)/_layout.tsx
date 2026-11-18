@@ -4,8 +4,8 @@ import { Tabs } from "expo-router/js-tabs";
 import * as React from "react";
 import type { ColorValue } from "react-native";
 
+import { unreadMessageCount } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
 import { colors } from "@/lib/theme";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -27,10 +27,7 @@ export default function TabsLayout() {
     queryKey: ["unread", userId],
     enabled: Boolean(userId),
     refetchInterval: 30_000,
-    queryFn: async () => {
-      const { data } = await supabase.rpc("get_my_conversations", { p_archived: false });
-      return (data ?? []).reduce((sum, c) => sum + (c.unread_count ?? 0), 0);
-    },
+    queryFn: unreadMessageCount,
   });
 
   return (
@@ -45,21 +42,21 @@ export default function TabsLayout() {
         sceneStyle: { backgroundColor: colors.surface },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "Start", headerShown: false, tabBarIcon: icon("home", "home-outline") }} />
-      <Tabs.Screen name="suchen" options={{ title: "Suchen", headerShown: false, tabBarIcon: icon("search", "search-outline") }} />
-      <Tabs.Screen name="inserieren" options={{ title: "Inserieren", headerTitle: "Meine Immobilien", tabBarIcon: icon("add-circle", "add-circle-outline") }} />
+      <Tabs.Screen name="index" options={{ title: "Suche", headerShown: false, tabBarIcon: icon("search", "search-outline") }} />
+      <Tabs.Screen name="merkliste" options={{ title: "Merkliste", tabBarIcon: icon("heart", "heart-outline") }} />
+      <Tabs.Screen name="suchauftraege" options={{ title: "Suchabos", headerTitle: "Suchaufträge", tabBarIcon: icon("notifications", "notifications-outline") }} />
+      <Tabs.Screen name="inserieren" options={{ title: "Inserate", headerTitle: "Meine Immobilien", tabBarIcon: icon("add-circle", "add-circle-outline") }} />
       <Tabs.Screen
-        name="nachrichten"
+        name="mehr"
         options={{
-          title: "Nachrichten",
-          tabBarIcon: icon("chatbubbles", "chatbubbles-outline"),
+          title: "Mehr",
+          headerTitleAlign: "center",
+          tabBarIcon: icon("ellipsis-horizontal", "ellipsis-horizontal"),
+          // Ungelesene Nachrichten: der Zugang liegt im Reiter «Mehr»
           tabBarBadge: unread.data ? unread.data : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.primary },
-          // Ohne Anmeldung gibt es keine Nachrichten – der Reiter erscheint erst mit Konto
-          ...(userId ? {} : { href: null }),
         }}
       />
-      <Tabs.Screen name="konto" options={{ title: "Konto", tabBarIcon: icon("person", "person-outline") }} />
     </Tabs>
   );
 }
