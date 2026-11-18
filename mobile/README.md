@@ -25,11 +25,16 @@ einzelne Regler im Bilderstudio, Konto löschen und Datenexport.
 ## Installierte App und automatische Updates (TestFlight)
 
 Die App ist mit dem Expo-Projekt `@arcaitags-team/immovia` verknüpft (`app.json`, `eas.json`).
-Der Ablauf `.eas/workflows/deploy.yml` läuft bei jedem Push auf `main`:
+Der Ablauf `.eas/workflows/deploy.yml` läuft bei jedem Push auf `main`, der Dateien unter `mobile/`
+ändert (Änderungen nur an der Website lösen nichts aus):
 
-- nur App-Code geändert → Update wird veröffentlicht, die installierte App lädt es beim nächsten Öffnen
-  (beim ersten Öffnen im Hintergrund, sichtbar ab dem zweiten Öffnen)
-- native Änderung (Expo-Version, Icon, Berechtigungen, natives Paket) → neuer Build geht an TestFlight
+- «Update veröffentlichen» stellt den App-Code bereit; die installierte App lädt ihn beim Öffnen
+- daneben wird geprüft, ob sich etwas Natives geändert hat (Expo-Version, Icon, Berechtigungen,
+  natives Paket); dann geht ein neuer Build an TestFlight
+- ein neuer Push ersetzt einen noch wartenden Lauf
+
+Im Gratis-Tarif von Expo warten die Schritte auf einen freien Rechner, zu Stosszeiten über eine
+Stunde. Den Stand jedes Laufs zeigt GitHub am Commit (Statuszeilen «App veröffentlichen / …»).
 
 Einmalig nötig (Apple-Anmeldung, geht nur von Hand):
 
