@@ -15,7 +15,7 @@ const IMAGE_RATIO = 2.7;
 type Fact = { key: string; label: string; icon: "rooms" | "expand-outline" | "business-outline" };
 
 /**
- * Inseratkarte der Suche und der Merkliste. Mit `gallery` lassen sich die Fotos wischen
+ * Inseratkarte der Trefferliste («Alle anzeigen») und der Merkliste. Mit `gallery` lassen sich die Fotos wischen
  * (Punkte zeigen die Position); ohne erscheint nur das Titelbild.
  */
 export function ListingCard({

@@ -31,6 +31,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="inserat/[slug]" options={{ title: "" }} />
+          <Stack.Screen name="ergebnisse" options={{ title: "Immobilien" }} />
           <Stack.Screen name="chat/[id]" options={{ title: "Nachrichten" }} />
           <Stack.Screen name="objekt/neu" options={{ title: "Immobilie erfassen", presentation: "modal" }} />
           <Stack.Screen name="objekt/[id]" options={{ title: "Inserat bearbeiten" }} />
