@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as React from "react";
-import { FlatList, Keyboard, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Animated, Keyboard, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AppHeader } from "@/components/app-header";
+import { HeroLogo } from "@/components/hero-logo";
 import { ListingCard } from "@/components/listing-card";
+import { FadeUp } from "@/components/motion";
 import { PlaceSuggestions } from "@/components/place-suggestions";
 import { SaveSearchSheet } from "@/components/save-search-sheet";
 import { Button, Chip, EmptyState, Field, Loading, Notice, SectionTitle } from "@/components/ui";
@@ -16,9 +18,10 @@ import { placeFromSuggestion, type PlaceSuggestion } from "@/lib/api-places";
 import { useAuth } from "@/lib/auth";
 import { useFavorites } from "@/lib/favorites";
 import { formatNumber, parseNumber } from "@/lib/format";
+import { useListingGalleries } from "@/lib/galleries";
 import { PROPERTY_TYPES, errorMessage } from "@/lib/labels";
 import type { Enums } from "@/lib/supabase";
-import { colors, radius, space, text } from "@/lib/theme";
+import { colors, palette, space, text } from "@/lib/theme";
 
 const OFFERS: { value: SearchFilters["offer"]; label: string }[] = [
   { value: null, label: "Alle" },
@@ -84,21 +87,51 @@ export default function SearchScreen() {
     initialPageParam: 0,
     getNextPageParam: (last, pages) => (pages.length * PAGE_SIZE < last.total ? pages.length : undefined),
   });
-  const rows = search.data?.pages.flatMap((p) => p.rows) ?? [];
-  const total = search.data?.pages[0]?.total ?? 0;
+  const pages = search.data?.pages ?? [];
+  const rows = pages.flatMap((p) => p.rows);
+  const total = pages[0]?.total ?? 0;
   const count = activeFilterCount(filters);
 
-  return (
-    <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: colors.white }}>
-      <AppHeader />
-      <View style={styles.header}>
+  // Fotos zum Wischen (und Kennzeichnung von KI-Bildern): eine Abfrage pro Seite der Ergebnisse
+  const galleries = useListingGalleries(pages.map((page) => page.rows));
+
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const heroShift = insets.top - 59;
+  const heroHeight = (width * 760) / 863;
+  // Leiste hinter der Statusanzeige erscheint, sobald die Seite gescrollt ist
+  const [scrollY] = React.useState(() => new Animated.Value(0));
+  const shade = scrollY.interpolate({ inputRange: [0, 24], outputRange: [0, 1], extrapolate: "clamp" });
+
+  const header = (
+    <View>
+      {/* Das Bild stammt aus der Vorlage (Statusleiste 59 pt): bei anderer Höhe mitverschieben, damit die Berge hinter dem Text bleiben */}
+      {heroShift > 0 ? <View style={[styles.heroFill, { height: heroShift + 2 }]} /> : null}
+      <View testID="hero-image" style={{ position: "absolute", top: heroShift, left: 0, width, height: heroHeight }}>
+        <Image source={require("../../../assets/images/hero-alpen.jpg")} style={StyleSheet.absoluteFill} contentFit="cover" />
+        {/* weicher Übergang vom Bild in den etwas helleren Seitenhintergrund */}
+        <View style={{ position: "absolute", top: heroHeight - 1, left: 0, right: 0, height: 160 }}>
+          <VerticalGradient from={palette.heroBottom} to={palette.screen} />
+        </View>
+      </View>
+      <View testID="hero-content" style={[styles.hero, { paddingTop: insets.top }]}>
+        <HeroLogo />
+        <FadeUp>
+          <Text accessibilityRole="header" style={styles.headline}>
+            {"Immobilien in der Schweiz\neinfach finden"}
+          </Text>
+          <Text style={styles.lead}>{"Kaufen, mieten oder entdecken –\nIhre Immobilie beginnt hier."}</Text>
+        </FadeUp>
+      </View>
+
+      <FadeUp delay={120} style={styles.searchCard}>
         <View style={styles.searchRow}>
           <View style={styles.searchBox}>
-            <Ionicons name="search" size={19} color={colors.muted} />
+            <Ionicons name="search" size={23} color={palette.searchIcon} />
             <TextInput
               accessibilityLabel="Ort, PLZ oder Region"
               placeholder="Ort, PLZ oder Region"
-              placeholderTextColor="#98a29b"
+              placeholderTextColor={palette.placeholder}
               value={queryInput}
               onChangeText={setQueryInput}
               returnKeyType="search"
@@ -110,7 +143,7 @@ export default function SearchScreen() {
             />
             {queryInput ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Suche leeren" hitSlop={10} onPress={() => setQueryInput("")}>
-                <Ionicons name="close-circle" size={19} color={colors.muted} />
+                <Ionicons name="close-circle" size={19} color={palette.placeholder} />
               </Pressable>
             ) : null}
           </View>
@@ -118,82 +151,106 @@ export default function SearchScreen() {
             accessibilityRole="button"
             accessibilityLabel={count ? `Filter, ${count} aktiv` : "Filter"}
             onPress={() => setFilterOpen(true)}
-            style={[styles.filterButton, count > 0 && { backgroundColor: colors.mint100, borderColor: colors.brand }]}
+            style={({ pressed }) => [styles.filterButton, pressed && { opacity: 0.88 }]}
           >
-            <Ionicons name="options-outline" size={22} color={colors.forest} />
+            <VerticalGradient from={palette.pineLight} to={palette.pineDark} />
+            <Ionicons name="options-outline" size={24} color={colors.white} />
             {count > 0 ? (
               <View style={styles.filterCount}>
-                <Text style={{ color: colors.white, fontSize: 11, fontWeight: "700" }}>{count}</Text>
+                <Text style={{ color: palette.pine, fontSize: 11, fontWeight: "800" }}>{count}</Text>
               </View>
             ) : null}
           </Pressable>
         </View>
-        <PlaceSuggestions query={queryInput} visible={showSuggestions} onPick={pickPlace} />
-        <View style={{ flexDirection: "row", gap: space.sm }}>
+        <View style={{ marginTop: showSuggestions ? 10 : 0 }}>
+          <PlaceSuggestions query={queryInput} visible={showSuggestions} onPick={pickPlace} />
+        </View>
+        <View accessibilityRole="radiogroup" style={styles.offerRow}>
           {OFFERS.map((o) => (
-            <Chip key={o.label} label={o.label} selected={filters.offer === o.value} onPress={() => setFilters((f) => ({ ...f, offer: o.value }))} />
+            <OfferChip key={o.label} label={o.label} selected={filters.offer === o.value} onPress={() => setFilters((f) => ({ ...f, offer: o.value }))} />
           ))}
         </View>
-      </View>
+      </FadeUp>
 
-      <FlatList
-        style={{ backgroundColor: colors.surface }}
-        contentContainerStyle={{ padding: space.lg, gap: space.lg }}
+      <View style={styles.resultRow}>
+        <Text accessibilityRole="summary" style={styles.count}>
+          {search.isSuccess ? (total === 1 ? "1 Immobilie gefunden" : `${formatNumber(total)} Immobilien gefunden`) : ""}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Suche speichern"
+          accessibilityHint="Speichert die aktuelle Suche als Suchauftrag"
+          hitSlop={{ top: 8, bottom: 8 }}
+          onPress={() => (userId ? setSaveOpen(true) : router.push("/login"))}
+          style={({ pressed }) => [styles.saveButton, pressed && { backgroundColor: colors.mint100 }]}
+        >
+          <Ionicons name="bookmark-outline" size={15} color={palette.saveText} />
+          <Text style={styles.saveText}>Suche speichern</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: palette.screen }}>
+      <Animated.FlatList
         data={rows}
         keyExtractor={(row) => row.id}
-        renderItem={({ item }) => <ListingCard row={item} favorite={favorites.isFavorite(item.id)} onToggleFavorite={() => favorites.toggle(item.id)} />}
+        renderItem={({ item }) => (
+          <View style={styles.cardWrap}>
+            <ListingCard row={item} gallery={galleries[item.id]} favorite={favorites.isFavorite(item.id)} onToggleFavorite={() => favorites.toggle(item.id)} />
+          </View>
+        )}
+        ItemSeparatorComponent={CardGap}
+        contentContainerStyle={{ paddingBottom: space.xl }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: Platform.OS !== "web" })}
         onEndReached={() => search.hasNextPage && !search.isFetchingNextPage && search.fetchNextPage()}
         onEndReachedThreshold={0.6}
-        refreshControl={<RefreshControl refreshing={search.isRefetching && !search.isFetchingNextPage} onRefresh={() => void search.refetch()} tintColor={colors.brand} />}
-        ListHeaderComponent={
-          search.isSuccess ? (
-            <View style={styles.resultRow}>
-              <Text accessibilityRole="summary" style={[text.small, { flex: 1 }]}>
-                {total === 1 ? "1 Immobilie gefunden" : `${formatNumber(total)} Immobilien gefunden`}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Suche speichern"
-                accessibilityHint="Speichert die aktuelle Suche als Suchauftrag"
-                onPress={() => (userId ? setSaveOpen(true) : router.push("/login"))}
-                style={({ pressed }) => [styles.saveButton, pressed && { backgroundColor: colors.mint100 }]}
-              >
-                <Ionicons name="bookmark-outline" size={18} color={colors.forest} />
-                <Text style={{ fontSize: 14.5, fontWeight: "600", color: colors.forest }}>Suche speichern</Text>
-              </Pressable>
-            </View>
-          ) : undefined
+        refreshControl={
+          <RefreshControl
+            refreshing={search.isRefetching && !search.isFetchingNextPage}
+            onRefresh={() => void search.refetch()}
+            tintColor={palette.pine}
+            progressViewOffset={insets.top}
+          />
         }
+        ListHeaderComponent={header}
         ListEmptyComponent={
-          search.isPending ? (
-            <Loading />
-          ) : search.isError ? (
-            <View style={{ gap: space.md }}>
-              <Notice tone="error">{errorMessage(search.error)}</Notice>
-              <Button title="Erneut versuchen" variant="outline" onPress={() => search.refetch()} />
-            </View>
-          ) : (
-            <EmptyState
-              icon="search-outline"
-              title="Keine Treffer"
-              description="Für diese Suche gibt es im Moment keine Inserate. Passen Sie Ort oder Filter an."
-              action={
-                count > 0 || filters.query || filters.place || filters.offer ? (
-                  <Button
-                    title="Filter zurücksetzen"
-                    variant="outline"
-                    onPress={() => {
-                      setQueryInput("");
-                      setFilters(EMPTY_FILTERS);
-                    }}
-                  />
-                ) : undefined
-              }
-            />
-          )
+          <View style={styles.cardWrap}>
+            {search.isPending ? (
+              <Loading />
+            ) : search.isError ? (
+              <View style={{ gap: space.md }}>
+                <Notice tone="error">{errorMessage(search.error)}</Notice>
+                <Button title="Erneut versuchen" variant="outline" onPress={() => search.refetch()} />
+              </View>
+            ) : (
+              <EmptyState
+                icon="search-outline"
+                title="Keine Treffer"
+                description="Für diese Suche gibt es im Moment keine Inserate. Passen Sie Ort oder Filter an."
+                action={
+                  count > 0 || filters.query || filters.place || filters.offer ? (
+                    <Button
+                      title="Filter zurücksetzen"
+                      variant="outline"
+                      onPress={() => {
+                        setQueryInput("");
+                        setFilters(EMPTY_FILTERS);
+                      }}
+                    />
+                  ) : undefined
+                }
+              />
+            )}
+          </View>
         }
         ListFooterComponent={search.isFetchingNextPage ? <Loading /> : undefined}
       />
+      <Animated.View pointerEvents="none" style={[styles.statusShade, { height: insets.top, opacity: shade }]} />
 
       <FilterSheet open={filterOpen} filters={filters} onClose={() => setFilterOpen(false)} onApply={setFilters} />
       <SaveSearchSheet
@@ -205,7 +262,47 @@ export default function SearchScreen() {
           router.push("/suchauftraege");
         }}
       />
-    </SafeAreaView>
+    </View>
+  );
+}
+
+function CardGap() {
+  return <View style={{ height: space.lg }} />;
+}
+
+/** Senkrechter Farbverlauf aus überlappenden Streifen (ohne zusätzliche Bibliothek, ohne sichtbare Fugen). */
+function VerticalGradient({ from, to }: { from: string; to: string }) {
+  const steps = 12;
+  const a = hexToRgb(from);
+  const b = hexToRgb(to);
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {Array.from({ length: steps }, (_, i) => {
+        const t = i / (steps - 1);
+        const c = a.map((v, k) => Math.round(v + (b[k]! - v) * t));
+        // jeder Streifen reicht bis ans Ende: der nächste überdeckt ihn, so entstehen keine Haarlinien
+        return <View key={i} style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: `${(i * 100) / steps}%`, backgroundColor: `rgb(${c.join(",")})` }} />;
+      })}
+    </View>
+  );
+}
+
+function hexToRgb(hex: string): number[] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function OfferChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      hitSlop={{ top: 4, bottom: 4 }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.chip, selected && styles.chipSelected, pressed && !selected && { backgroundColor: "#dfe5d8" }]}
+    >
+      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -287,45 +384,73 @@ function FilterForm({ filters, onClose, onApply }: { filters: SearchFilters; onC
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: space.lg, paddingTop: 2, paddingBottom: space.md, gap: space.md, borderBottomWidth: 1, borderBottomColor: colors.border },
-  searchRow: { flexDirection: "row", gap: space.sm },
+  // Masse aus der Gestaltungsvorlage (393 pt breit)
+  hero: { paddingHorizontal: 22 },
+  headline: { marginTop: 31, fontSize: 26, lineHeight: 28, fontWeight: "700", letterSpacing: -0.5, color: palette.headline },
+  lead: { marginTop: 2.5, fontSize: 14.5, lineHeight: 18.2, color: palette.lead },
+  searchCard: {
+    marginTop: 17,
+    marginHorizontal: 11,
+    paddingTop: 22,
+    paddingBottom: 21,
+    paddingHorizontal: 13,
+    borderRadius: 17,
+    backgroundColor: palette.searchCard,
+    // boxShadow statt shadow*: gleiche Unschärfe auf iOS, Android und im Web
+    boxShadow: "0 6px 16px rgba(30,46,25,0.09)",
+  },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: 11 },
   searchBox: {
     flex: 1,
-    minHeight: 50,
+    height: 48,
     flexDirection: "row",
     alignItems: "center",
-    gap: space.sm,
-    paddingHorizontal: 14,
-    borderRadius: radius.lg,
+    gap: 11,
+    paddingLeft: 17,
+    paddingRight: 14,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: colors.input,
-    backgroundColor: colors.white,
+    borderColor: palette.inputBorder,
+    backgroundColor: "#fbfbfa",
+    boxShadow: "0 2px 4px rgba(25,40,20,0.09), 0 8px 20px rgba(25,40,20,0.09)",
   },
   searchInput: { flex: 1, fontSize: 16, color: colors.foreground, paddingVertical: 10 },
-  filterButton: { width: 50, height: 50, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.input, alignItems: "center", justifyContent: "center" },
+  filterButton: { width: 49, height: 49, borderRadius: 11, overflow: "hidden", alignItems: "center", justifyContent: "center" },
   filterCount: {
     position: "absolute",
-    top: -5,
-    right: -5,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
+    top: 4,
+    right: 4,
+    minWidth: 17,
+    height: 17,
+    paddingHorizontal: 4,
+    borderRadius: 8.5,
+    backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
   },
-  resultRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  offerRow: { marginTop: 21, flexDirection: "row", gap: 10 },
+  chip: { height: 38, minWidth: 67, paddingHorizontal: 18, borderRadius: 19, backgroundColor: palette.chip, alignItems: "center", justifyContent: "center" },
+  chipSelected: { backgroundColor: palette.pine },
+  chipText: { fontSize: 15, fontWeight: "500", color: palette.chipText },
+  chipTextSelected: { fontWeight: "600", color: colors.white },
+  resultRow: { marginTop: 31, marginBottom: 16.5, paddingLeft: 23, paddingRight: 15, flexDirection: "row", alignItems: "center", gap: space.sm },
+  count: { flex: 1, fontSize: 11.5, color: palette.count },
   saveButton: {
-    minHeight: 44,
+    height: 29.6,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    borderRadius: radius.full,
+    gap: 8,
+    paddingLeft: 11.5,
+    paddingRight: 9.5,
+    borderRadius: 15,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.white,
+    borderColor: palette.saveBorder,
+    backgroundColor: "rgba(255,255,255,0.55)",
   },
+  saveText: { fontSize: 11.5, fontWeight: "600", color: palette.saveText },
+  cardWrap: { paddingHorizontal: 23 },
+  statusShade: { position: "absolute", top: 0, left: 0, right: 0, backgroundColor: palette.heroTop },
+  heroFill: { position: "absolute", top: 0, left: 0, right: 0, backgroundColor: palette.heroTop },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   sheetHeader: {
     flexDirection: "row",

@@ -1,6 +1,7 @@
 import * as Crypto from "expo-crypto";
 
 import { CONFIG } from "@/lib/config";
+import { imageUrl } from "@/lib/format";
 import { supabase, type Database, type Enums, type Tables } from "@/lib/supabase";
 
 /**
@@ -111,6 +112,42 @@ export async function setFavorite(userId: string, listingId: string, favorite: b
     const { error } = await supabase.from("favorites").delete().eq("user_id", userId).eq("listing_id", listingId);
     if (error) throw error;
   }
+}
+
+/** Höchstzahl Fotos in der Galerie einer Suchkarte. */
+export const GALLERY_MAX = 5;
+
+export type GalleryImage = { url: string; ai: boolean };
+
+/**
+ * Fotos für die Galerie der Suchkarten, nach Inserat: Titelbild zuerst, ohne Grundrisse.
+ * KI-Visualisierungen sind dabei und werden in der Karte gekennzeichnet (wie in der Detailansicht);
+ * so ist auch ein KI-bearbeitetes Titelbild erkennbar.
+ */
+export async function listingGalleries(listingIds: string[]): Promise<Record<string, GalleryImage[]>> {
+  if (!listingIds.length) return {};
+  const { data: listings, error } = await supabase.from("listings").select("id, property_id").in("id", listingIds);
+  if (error) throw error;
+  const propertyIds = [...new Set((listings ?? []).map((l) => l.property_id))];
+  if (!propertyIds.length) return {};
+  const { data: images, error: imagesError } = await supabase
+    .from("property_images")
+    .select("property_id, display_path, external_url, is_ai_visualization")
+    .in("property_id", propertyIds)
+    .eq("status", "ready")
+    .eq("is_floor_plan", false)
+    .order("is_cover", { ascending: false })
+    .order("sort_order", { ascending: true });
+  if (imagesError) throw imagesError;
+  const byProperty = new Map<string, GalleryImage[]>();
+  for (const image of images ?? []) {
+    const url = imageUrl(image, "md");
+    if (!url) continue;
+    const list = byProperty.get(image.property_id) ?? [];
+    if (list.length < GALLERY_MAX) list.push({ url, ai: image.is_ai_visualization });
+    byProperty.set(image.property_id, list);
+  }
+  return Object.fromEntries((listings ?? []).map((l) => [l.id, byProperty.get(l.property_id) ?? []]));
 }
 
 // --- Inserat -----------------------------------------------------------------

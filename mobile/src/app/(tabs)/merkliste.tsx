@@ -8,6 +8,7 @@ import { EmptyState, Loading, Notice } from "@/components/ui";
 import { favoriteIds, listingsByIds } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useFavorites } from "@/lib/favorites";
+import { useListingGalleries } from "@/lib/galleries";
 import { errorMessage } from "@/lib/labels";
 import { colors, space } from "@/lib/theme";
 
@@ -24,6 +25,7 @@ export default function FavoritesScreen() {
       return rows.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
     },
   });
+  const galleries = useListingGalleries([query.data ?? []]);
 
   if (loading) return <Loading />;
   if (!userId) {
@@ -41,7 +43,7 @@ export default function FavoritesScreen() {
       contentContainerStyle={{ padding: space.lg, gap: space.lg }}
       data={rows}
       keyExtractor={(row) => row.id}
-      renderItem={({ item }) => <ListingCard row={item} favorite onToggleFavorite={() => favorites.toggle(item.id)} />}
+      renderItem={({ item }) => <ListingCard row={item} gallery={galleries[item.id]} favorite onToggleFavorite={() => favorites.toggle(item.id)} />}
       refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} tintColor={colors.brand} />}
       ListEmptyComponent={
         query.isPending ? (
