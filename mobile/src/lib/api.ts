@@ -1,6 +1,7 @@
 import * as Crypto from "expo-crypto";
 
 import { CONFIG } from "@/lib/config";
+import type { FeatureKey } from "@/lib/filter-options";
 import { imageUrl } from "@/lib/format";
 import { supabase, type Database, type Enums, type Tables } from "@/lib/supabase";
 
@@ -44,49 +45,118 @@ export interface PlaceFilter {
   radiusKm?: number;
 }
 
+export type SortOption = "newest" | "price_asc" | "price_desc" | "area_desc" | "distance";
+
 export interface SearchFilters {
   offer: Enums<"offer_type"> | null;
   /** Freitext (Ort, PLZ oder Titel); leer, wenn ein Ort aus den Vorschlägen gewählt ist. */
   query: string;
   place: PlaceFilter | null;
   types: Enums<"property_type">[];
+  priceMin: number | null;
   priceMax: number | null;
   roomsMin: number | null;
+  roomsMax: number | null;
   areaMin: number | null;
-  sort: "newest" | "price_asc" | "price_desc";
+  areaMax: number | null;
+  plotMin: number | null;
+  plotMax: number | null;
+  yearMin: number | null;
+  conditions: Enums<"property_condition">[];
+  /** Merkmale und Ausstattung (Schlüssel wie in den gespeicherten Kriterien der Website) */
+  features: FeatureKey[];
+  /** nur Inserate mit Preis (ohne «Preis auf Anfrage») */
+  withPrice: boolean;
+  sort: SortOption;
 }
 
-export const EMPTY_FILTERS: SearchFilters = { offer: null, query: "", place: null, types: [], priceMax: null, roomsMin: null, areaMin: null, sort: "newest" };
+export const EMPTY_FILTERS: SearchFilters = {
+  offer: null,
+  query: "",
+  place: null,
+  types: [],
+  priceMin: null,
+  priceMax: null,
+  roomsMin: null,
+  roomsMax: null,
+  areaMin: null,
+  areaMax: null,
+  plotMin: null,
+  plotMax: null,
+  yearMin: null,
+  conditions: [],
+  features: [],
+  withPrice: false,
+  sort: "newest",
+};
 
+/** Filter ohne Angebotsart, Ort und Sortierung (für das Zeichen am Filterknopf). */
 export function activeFilterCount(f: SearchFilters): number {
-  return f.types.length + (f.priceMax !== null ? 1 : 0) + (f.roomsMin !== null ? 1 : 0) + (f.areaMin !== null ? 1 : 0);
+  const numbers = [f.priceMin, f.priceMax, f.roomsMin, f.roomsMax, f.areaMin, f.areaMax, f.plotMin, f.plotMax, f.yearMin];
+  return f.types.length + numbers.filter((n) => n !== null).length + f.conditions.length + f.features.length + (f.withPrice ? 1 : 0);
+}
+
+/** Umkreis aktiv: Ort mit Koordinaten und gewähltem Radius. */
+export function placeRadius(place: PlaceFilter | null): number | null {
+  return place && typeof place.lat === "number" && typeof place.lng === "number" && place.radiusKm ? place.radiusKm : null;
+}
+
+/** Abbildung auf search_listings, gleich wie toRpcArgs der Website (src/lib/search/criteria.ts). */
+function rpcArgs(filters: SearchFilters) {
+  const place = filters.place;
+  const radius = placeRadius(place);
+  const feature = (key: FeatureKey) => (filters.features.includes(key) ? true : undefined);
+  const value = (n: number | null) => n ?? undefined;
+  return {
+    p_offer_type: filters.offer ?? undefined,
+    p_query: place ? undefined : filters.query.trim() || undefined,
+    // Mit Umkreis zählen Gemeinde, PLZ und Kanton nicht (Umkreis über Grenzen hinaus)
+    p_municipality: radius ? undefined : place?.municipality || undefined,
+    p_postal_code: radius ? undefined : place?.postalCode || undefined,
+    p_canton: radius ? undefined : place?.canton || undefined,
+    p_lat: radius ? place?.lat : undefined,
+    p_lng: radius ? place?.lng : undefined,
+    p_radius_km: radius || undefined,
+    p_property_types: filters.types.length ? filters.types : undefined,
+    p_price_min: value(filters.priceMin),
+    p_price_max: value(filters.priceMax),
+    p_rooms_min: value(filters.roomsMin),
+    p_rooms_max: value(filters.roomsMax),
+    p_area_min: value(filters.areaMin),
+    p_area_max: value(filters.areaMax),
+    p_plot_min: value(filters.plotMin),
+    p_plot_max: value(filters.plotMax),
+    p_year_min: value(filters.yearMin),
+    p_conditions: filters.conditions.length ? filters.conditions : undefined,
+    p_balcony: feature("balcony"),
+    p_terrace: feature("terrace"),
+    p_garden: feature("garden"),
+    p_parking: feature("parking"),
+    p_garage: feature("garage"),
+    p_elevator: feature("elevator"),
+    p_pets: filters.offer === "rent" ? feature("pets") : undefined,
+    p_new_build: feature("new_build"),
+    p_wheelchair: feature("wheelchair"),
+    p_minergie: feature("minergie"),
+    p_with_price: filters.withPrice || undefined,
+    p_sort: filters.sort === "distance" && !radius ? "newest" : filters.sort,
+  };
 }
 
 export const PAGE_SIZE = 20;
 
 export async function searchListings(filters: SearchFilters, page: number): Promise<{ rows: SearchRow[]; total: number }> {
-  const place = filters.place;
-  const radius = place && typeof place.lat === "number" && typeof place.lng === "number" && place.radiusKm ? place.radiusKm : null;
-  const { data, error } = await supabase.rpc("search_listings", {
-    p_offer_type: filters.offer ?? undefined,
-    p_query: place ? undefined : filters.query.trim() || undefined,
-    p_municipality: place?.municipality || undefined,
-    p_postal_code: place?.postalCode || undefined,
-    p_canton: place?.canton || undefined,
-    p_lat: radius ? place?.lat : undefined,
-    p_lng: radius ? place?.lng : undefined,
-    p_radius_km: radius || undefined,
-    p_property_types: filters.types.length ? filters.types : undefined,
-    p_price_max: filters.priceMax ?? undefined,
-    p_rooms_min: filters.roomsMin ?? undefined,
-    p_area_min: filters.areaMin ?? undefined,
-    p_sort: filters.sort,
-    p_limit: PAGE_SIZE,
-    p_offset: page * PAGE_SIZE,
-  });
+  const { data, error } = await supabase.rpc("search_listings", { ...rpcArgs(filters), p_limit: PAGE_SIZE, p_offset: page * PAGE_SIZE });
   if (error) throw error;
   const rows = (data ?? []) as unknown as SearchRow[];
   return { rows, total: Number(rows[0]?.total_count ?? 0) };
+}
+
+/** Anzahl Treffer für den Knopf im Filter («12 Inserate anzeigen»). */
+export async function countListings(filters: SearchFilters): Promise<number> {
+  const { data, error } = await supabase.rpc("search_listings", { ...rpcArgs(filters), p_limit: 1, p_offset: 0 });
+  if (error) throw error;
+  return Number((data ?? [])[0]?.total_count ?? 0);
 }
 
 export async function listingsByIds(ids: string[]): Promise<SearchRow[]> {

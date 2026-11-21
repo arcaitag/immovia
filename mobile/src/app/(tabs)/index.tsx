@@ -3,36 +3,30 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as React from "react";
-import { ActivityIndicator, Animated, FlatList, Keyboard, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Animated, FlatList, Keyboard, Platform, Pressable, RefreshControl, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HeroLogo } from "@/components/hero-logo";
 import { ListingTile, TILE_GAP, TILE_WIDTH } from "@/components/listing-tile";
+import { FilterSheet } from "@/components/filter-sheet";
 import { FadeUp } from "@/components/motion";
 import { PlaceSuggestions } from "@/components/place-suggestions";
-import { Button, Chip, EmptyState, Field, Notice, SectionTitle } from "@/components/ui";
+import { Button, EmptyState, Notice } from "@/components/ui";
 import { EMPTY_FILTERS, PAGE_SIZE, activeFilterCount, searchListings, type SearchFilters } from "@/lib/api";
 import { decodeFiltersParam, encodeFiltersParam } from "@/lib/api-account";
 import { demoRowsFor } from "@/lib/demo-listings";
 import { placeFromSuggestion, type PlaceSuggestion } from "@/lib/api-places";
 import { useFavorites } from "@/lib/favorites";
-import { formatNumber, parseNumber } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { useListingGalleries } from "@/lib/galleries";
-import { PROPERTY_TYPES, errorMessage } from "@/lib/labels";
-import type { Enums } from "@/lib/supabase";
-import { colors, palette, space, text } from "@/lib/theme";
+import { errorMessage } from "@/lib/labels";
+import { colors, palette, space } from "@/lib/theme";
 
 const OFFERS: { value: SearchFilters["offer"]; label: string }[] = [
   { value: null, label: "Alle" },
   { value: "sale", label: "Kaufen" },
   { value: "rent", label: "Mieten" },
 ];
-const SORTS: { value: SearchFilters["sort"]; label: string }[] = [
-  { value: "newest", label: "Neueste" },
-  { value: "price_asc", label: "Preis aufsteigend" },
-  { value: "price_desc", label: "Preis absteigend" },
-];
-const ROOMS = [1, 2, 3, 4, 5];
 
 /** Zusätzlicher Abstand zwischen Logo und Titel (gegenüber der ersten Vorlage); das Alpenbild rückt mit. */
 const LOGO_GAP = 23;
@@ -276,7 +270,16 @@ export default function SearchScreen() {
       </Animated.ScrollView>
       <Animated.View pointerEvents="none" style={[styles.statusShade, { height: insets.top, opacity: shade }]} />
 
-      <FilterSheet open={filterOpen} filters={filters} onClose={() => setFilterOpen(false)} onApply={setFilters} />
+      <FilterSheet
+        open={filterOpen}
+        filters={filters}
+        onClose={() => setFilterOpen(false)}
+        onApply={(next) => {
+          setFilters(next);
+          // Ort im Filter entfernt oder geändert: Suchfeld nachführen
+          setQueryInput(next.place ? next.place.label : next.query);
+        }}
+      />
     </View>
   );
 }
@@ -318,83 +321,6 @@ function OfferChip({ label, selected, onPress }: { label: string; selected: bool
     >
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
     </Pressable>
-  );
-}
-
-function FilterSheet(props: { open: boolean; filters: SearchFilters; onClose: () => void; onApply: (filters: SearchFilters) => void }) {
-  return (
-    <Modal visible={props.open} animationType="slide" presentationStyle="pageSheet" onRequestClose={props.onClose}>
-      {/* Inhalt bei jedem Öffnen neu aufbauen: übernimmt die aktuellen Filter als Ausgangswerte */}
-      {props.open ? <FilterForm {...props} /> : null}
-    </Modal>
-  );
-}
-
-function FilterForm({ filters, onClose, onApply }: { filters: SearchFilters; onClose: () => void; onApply: (filters: SearchFilters) => void }) {
-  const [draft, setDraft] = React.useState(filters);
-  const [price, setPrice] = React.useState(filters.priceMax !== null ? String(filters.priceMax) : "");
-  const [area, setArea] = React.useState(filters.areaMin !== null ? String(filters.areaMin) : "");
-
-  const toggleType = (type: Enums<"property_type">) =>
-    setDraft((d) => ({ ...d, types: d.types.includes(type) ? d.types.filter((t) => t !== type) : [...d.types, type] }));
-
-  return (
-      <View style={{ flex: 1, backgroundColor: colors.white }}>
-        <View style={styles.sheetHeader}>
-          <Text style={text.heading}>Filter</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Schliessen" hitSlop={10} onPress={onClose}>
-            <Ionicons name="close" size={26} color={colors.forest} />
-          </Pressable>
-        </View>
-        <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }} keyboardShouldPersistTaps="handled">
-          <SectionTitle>Immobilientyp</SectionTitle>
-          <View style={styles.wrap}>
-            {(Object.keys(PROPERTY_TYPES) as Enums<"property_type">[]).map((type) => (
-              <Chip key={type} label={PROPERTY_TYPES[type]} selected={draft.types.includes(type)} onPress={() => toggleType(type)} />
-            ))}
-          </View>
-          <SectionTitle>Zimmer ab</SectionTitle>
-          <View style={styles.wrap}>
-            <Chip label="Egal" selected={draft.roomsMin === null} onPress={() => setDraft((d) => ({ ...d, roomsMin: null }))} />
-            {ROOMS.map((n) => (
-              <Chip key={n} label={`${n}+`} selected={draft.roomsMin === n} onPress={() => setDraft((d) => ({ ...d, roomsMin: n }))} />
-            ))}
-          </View>
-          <Field
-            label={draft.offer === "rent" ? "Miete bis (CHF pro Monat)" : "Preis bis (CHF)"}
-            value={price}
-            onChangeText={setPrice}
-            keyboardType="number-pad"
-            placeholder="Kein Maximum"
-          />
-          <Field label="Wohnfläche ab (m²)" value={area} onChangeText={setArea} keyboardType="number-pad" placeholder="Kein Minimum" />
-          <SectionTitle>Sortierung</SectionTitle>
-          <View style={styles.wrap}>
-            {SORTS.map((s) => (
-              <Chip key={s.value} label={s.label} selected={draft.sort === s.value} onPress={() => setDraft((d) => ({ ...d, sort: s.value }))} />
-            ))}
-          </View>
-        </ScrollView>
-        <View style={styles.sheetFooter}>
-          <Button
-            title="Zurücksetzen"
-            variant="outline"
-            style={{ flex: 1 }}
-            onPress={() => {
-              onApply({ ...EMPTY_FILTERS, offer: filters.offer, query: filters.query, place: filters.place });
-              onClose();
-            }}
-          />
-          <Button
-            title="Anzeigen"
-            style={{ flex: 1 }}
-            onPress={() => {
-              onApply({ ...draft, priceMax: parseNumber(price), areaMin: parseNumber(area) });
-              onClose();
-            }}
-          />
-        </View>
-      </View>
   );
 }
 
@@ -460,14 +386,4 @@ const styles = StyleSheet.create({
   rowMessage: { marginTop: 24, paddingHorizontal: 23, gap: space.md },
   statusShade: { position: "absolute", top: 0, left: 0, right: 0, backgroundColor: palette.heroTop },
   heroFill: { position: "absolute", top: 0, left: 0, right: 0, backgroundColor: palette.heroTop },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: space.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  sheetFooter: { flexDirection: "row", gap: space.md, padding: space.lg, paddingBottom: space.xl, borderTopWidth: 1, borderTopColor: colors.border },
 });

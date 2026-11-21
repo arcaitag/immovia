@@ -1,6 +1,7 @@
-import type { PlaceFilter, SearchFilters } from "@/lib/api";
+import type { PlaceFilter, SearchFilters, SortOption } from "@/lib/api";
+import { FEATURE_FILTERS } from "@/lib/filter-options";
 import { formatNumber } from "@/lib/format";
-import { PROPERTY_TYPES, errorMessage } from "@/lib/labels";
+import { CONDITIONS, PROPERTY_TYPES, errorMessage } from "@/lib/labels";
 import { supabase, type Database, type Enums, type Tables } from "@/lib/supabase";
 
 /**
@@ -283,8 +284,27 @@ export type AlertFrequency = keyof typeof ALERT_FREQUENCIES;
  */
 export type SavedCriteria = Record<string, unknown>;
 
-/** Kriterien, die die Suche der App anwenden kann. */
-const APP_KEYS = new Set(["offer", "types", "q", "price_max", "rooms_min", "area_min", "label", "municipality", "postal_code", "canton", "lat", "lng", "radius"]);
+/** Zahlen-Kriterien: Schlüssel der Website ↔ Feld der App */
+const NUMBER_KEYS = [
+  ["price_min", "priceMin"],
+  ["price_max", "priceMax"],
+  ["rooms_min", "roomsMin"],
+  ["rooms_max", "roomsMax"],
+  ["area_min", "areaMin"],
+  ["area_max", "areaMax"],
+  ["plot_min", "plotMin"],
+  ["plot_max", "plotMax"],
+  ["year_min", "yearMin"],
+] as const satisfies readonly (readonly [string, keyof SearchFilters])[];
+
+const FEATURE_KEYS = new Set<string>(FEATURE_FILTERS.map((f) => f.key));
+const CONDITION_KEYS = new Set<string>(Object.keys(CONDITIONS));
+
+/** Kriterien, die die Suche der App anwenden kann (alle der Website ausser Kartenausschnitt). */
+const APP_KEYS = new Set([
+  "offer", "types", "q", "label", "municipality", "postal_code", "canton", "lat", "lng", "radius",
+  "conditions", "with_price", ...NUMBER_KEYS.map(([key]) => key), ...FEATURE_KEYS,
+]);
 
 /** Filter der App → gespeicherte Kriterien (nur gesetzte Werte, wie toSavedCriteria der Website). */
 export function criteriaFromFilters(filters: SearchFilters): SavedCriteria {
@@ -294,20 +314,26 @@ export function criteriaFromFilters(filters: SearchFilters): SavedCriteria {
   const place = filters.place;
   const q = filters.query.trim().slice(0, 80);
   if (place) {
-    // Schlüssel wie auf der Website: Gemeinde, PLZ, Kanton oder Koordinaten mit Umkreis
+    // Schlüssel wie auf der Website: Gemeinde, PLZ, Kanton, Koordinaten und allenfalls Umkreis
     criteria.label = place.label.slice(0, 120);
     if (place.municipality) criteria.municipality = place.municipality.slice(0, 80);
     if (place.postalCode) criteria.postal_code = place.postalCode;
     if (place.canton) criteria.canton = place.canton;
-    if (typeof place.lat === "number" && typeof place.lng === "number" && place.radiusKm) {
+    if (typeof place.lat === "number" && typeof place.lng === "number") {
       criteria.lat = place.lat;
       criteria.lng = place.lng;
-      criteria.radius = place.radiusKm;
+      if (place.radiusKm) criteria.radius = place.radiusKm;
     }
   } else if (q) criteria.q = q;
-  if (filters.priceMax !== null && filters.priceMax >= 0) criteria.price_max = filters.priceMax;
-  if (filters.roomsMin !== null && filters.roomsMin >= 0) criteria.rooms_min = filters.roomsMin;
-  if (filters.areaMin !== null && filters.areaMin >= 0) criteria.area_min = filters.areaMin;
+  for (const [key, field] of NUMBER_KEYS) {
+    const value = filters[field];
+    if (typeof value === "number" && value >= 0) criteria[key] = value;
+  }
+  if (filters.conditions.length) criteria.conditions = filters.conditions.slice(0, 5);
+  for (const feature of filters.features) {
+    if (feature !== "pets" || filters.offer === "rent") criteria[feature] = true;
+  }
+  if (filters.withPrice) criteria.with_price = true;
   return criteria;
 }
 
@@ -319,19 +345,45 @@ function asNumber(value: unknown): number | null {
 function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
+function asCoordinate(value: unknown, min: number, max: number): number | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= min && n <= max ? n : undefined;
+}
 
-/** Ort aus gespeicherten Kriterien (Gemeinde, PLZ, Kanton oder Koordinaten mit Umkreis). */
+/** Ort aus gespeicherten Kriterien (Gemeinde, PLZ, Kanton und/oder Koordinaten mit Umkreis). */
 function placeFromCriteria(c: Record<string, unknown>): PlaceFilter | null {
   const municipality = asText(c.municipality) || undefined;
   const postalCode = /^[1-9]\d{3}$/.test(asText(c.postal_code)) ? asText(c.postal_code) : undefined;
   const canton = /^[A-Z]{2}$/.test(asText(c.canton)) ? asText(c.canton) : undefined;
-  const lat = typeof c.lat === "number" ? c.lat : Number(c.lat);
-  const lng = typeof c.lng === "number" ? c.lng : Number(c.lng);
-  const radiusKm = asNumber(c.radius);
-  const hasRadius = Number.isFinite(lat) && Number.isFinite(lng) && c.lat != null && c.lng != null && radiusKm !== null && radiusKm >= 1 && radiusKm <= 100;
-  if (!municipality && !postalCode && !canton && !hasRadius) return null;
+  // gleiche Grenzen wie auf der Website (criteria.ts)
+  const lat = asCoordinate(c.lat, 45.7, 47.9);
+  const lng = asCoordinate(c.lng, 5.8, 10.6);
+  const coordinates = lat !== undefined && lng !== undefined;
+  const radius = asNumber(c.radius);
+  const radiusKm = coordinates && radius !== null && radius >= 1 && radius <= 100 ? radius : undefined;
+  // Koordinaten allein (Adresse, Bezirk) gelten nur mit Umkreis
+  if (!municipality && !postalCode && !canton && !radiusKm) return null;
   const label = asText(c.label) || municipality || postalCode || (canton ? `Kanton ${canton}` : "Umkreis");
-  return { label: label.slice(0, 120), municipality, postalCode, canton, ...(hasRadius ? { lat, lng, radiusKm: radiusKm ?? undefined } : {}) };
+  return { label: label.slice(0, 120), municipality, postalCode, canton, ...(coordinates ? { lat, lng } : {}), ...(radiusKm ? { radiusKm } : {}) };
+}
+
+/** Gemeinsame Prüfung aller übrigen Filterwerte (gespeicherte Kriterien und Routen-Parameter). */
+function filterValues(read: (key: string, field: keyof SearchFilters) => unknown, offer: SearchFilters["offer"]) {
+  const list = (value: unknown) => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
+  const numbers = Object.fromEntries(NUMBER_KEYS.map(([key, field]) => [field, asNumber(read(key, field))])) as Pick<
+    SearchFilters,
+    (typeof NUMBER_KEYS)[number][1]
+  >;
+  return {
+    ...numbers,
+    types: list(read("types", "types")).filter((t): t is Enums<"property_type"> => t in PROPERTY_TYPES),
+    conditions: list(read("conditions", "conditions")).filter((c): c is Enums<"property_condition"> => CONDITION_KEYS.has(c)),
+    features: FEATURE_FILTERS.filter((f) => (!f.rentOnly || offer === "rent") && (read(f.key, "features") === true || list(read("features", "features")).includes(f.key))).map(
+      (f) => f.key,
+    ),
+    withPrice: read("with_price", "withPrice") === true,
+  };
 }
 
 /**
@@ -340,41 +392,33 @@ function placeFromCriteria(c: Record<string, unknown>): PlaceFilter | null {
  */
 export function filtersFromCriteria(value: unknown): { filters: SearchFilters; partial: boolean } {
   const c = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-  const types = Array.isArray(c.types) ? c.types.filter((t): t is Enums<"property_type"> => typeof t === "string" && t in PROPERTY_TYPES) : [];
+  const offer = c.offer === "sale" || c.offer === "rent" ? c.offer : null;
   const place = placeFromCriteria(c);
-  const query = place ? "" : asText(c.q);
   const partial = Object.entries(c).some(([key, v]) => !APP_KEYS.has(key) && v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && !v.length));
   return {
-    filters: {
-      offer: c.offer === "sale" || c.offer === "rent" ? c.offer : null,
-      query,
-      place,
-      types,
-      priceMax: asNumber(c.price_max),
-      roomsMin: asNumber(c.rooms_min),
-      areaMin: asNumber(c.area_min),
-      sort: "newest",
-    },
+    filters: { offer, query: place ? "" : asText(c.q), place, ...filterValues((key) => c[key], offer), sort: "newest" },
     partial,
   };
 }
 
 /** Kurze, lesbare Zusammenfassung (wie describeCriteria der Website). */
 export function describeCriteria(value: unknown): string {
+  const { filters } = filtersFromCriteria(value);
   const c = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-  const types = Array.isArray(c.types) ? c.types.filter((t): t is Enums<"property_type"> => typeof t === "string" && t in PROPERTY_TYPES) : [];
   const parts: string[] = [];
-  const typeLabel = types.length ? types.map((t) => PROPERTY_TYPES[t]).join(", ") : "Immobilien";
-  parts.push(`${typeLabel}${c.offer === "sale" ? " zum Kaufen" : c.offer === "rent" ? " zum Mieten" : ""}`);
+  const typeLabel = filters.types.length ? filters.types.map((t) => PROPERTY_TYPES[t]).join(", ") : "Immobilien";
+  parts.push(`${typeLabel}${filters.offer === "sale" ? " zum Kaufen" : filters.offer === "rent" ? " zum Mieten" : ""}`);
   const place = asText(c.label) || asText(c.municipality) || asText(c.postal_code) || (asText(c.canton) && `Kanton ${asText(c.canton)}`) || asText(c.q);
-  const radius = asNumber(c.radius);
+  const radius = filters.place?.radiusKm;
   if (place) parts.push(`in ${place}${radius ? ` (+${radius} km)` : ""}`);
-  const rooms = asNumber(c.rooms_min);
-  if (rooms) parts.push(`ab ${String(rooms).replace(".", ",")} Zimmer`);
-  const price = asNumber(c.price_max);
-  if (price) parts.push(`bis CHF ${formatNumber(price)}`);
-  const area = asNumber(c.area_min);
-  if (area) parts.push(`ab ${formatNumber(area)} m²`);
+  if (filters.roomsMin) parts.push(`ab ${String(filters.roomsMin).replace(".", ",")} Zimmer`);
+  if (filters.priceMax) parts.push(`bis CHF ${formatNumber(filters.priceMax)}`);
+  if (filters.areaMin) parts.push(`ab ${formatNumber(filters.areaMin)} m²`);
+  if (filters.plotMin || filters.plotMax) {
+    parts.push(`Grundstück ${filters.plotMin ? `ab ${formatNumber(filters.plotMin)} m²` : ""}${filters.plotMin && filters.plotMax ? " " : ""}${filters.plotMax ? `bis ${formatNumber(filters.plotMax)} m²` : ""}`);
+  }
+  if (filters.features.includes("minergie")) parts.push("Minergie");
+  if (filters.withPrice) parts.push("nur mit Preis");
   return parts.join(" · ");
 }
 
@@ -390,20 +434,20 @@ function decodePlace(value: unknown): PlaceFilter | null {
   return placeFromCriteria({ label: p.label, municipality: p.municipality, postal_code: p.postalCode, canton: p.canton, lat: p.lat, lng: p.lng, radius: p.radiusKm });
 }
 
+const SORTS = new Set<SortOption>(["newest", "price_asc", "price_desc", "area_desc", "distance"]);
+
 export function decodeFiltersParam(raw: string | undefined): SearchFilters | null {
   if (!raw) return null;
   try {
-    const v = JSON.parse(raw) as Partial<SearchFilters> | null;
-    if (!v || typeof v !== "object") return null;
+    const v = JSON.parse(raw) as Record<string, unknown> | null;
+    if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+    const offer = v.offer === "sale" || v.offer === "rent" ? v.offer : null;
     return {
-      offer: v.offer === "sale" || v.offer === "rent" ? v.offer : null,
+      offer,
       query: typeof v.query === "string" ? v.query.slice(0, 80) : "",
       place: decodePlace(v.place),
-      types: Array.isArray(v.types) ? v.types.filter((t) => typeof t === "string" && t in PROPERTY_TYPES) : [],
-      priceMax: asNumber(v.priceMax),
-      roomsMin: asNumber(v.roomsMin),
-      areaMin: asNumber(v.areaMin),
-      sort: v.sort === "price_asc" || v.sort === "price_desc" ? v.sort : "newest",
+      ...filterValues((_key, field) => v[field], offer),
+      sort: SORTS.has(v.sort as SortOption) ? (v.sort as SortOption) : "newest",
     };
   } catch {
     return null;

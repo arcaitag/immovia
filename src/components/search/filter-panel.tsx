@@ -3,32 +3,28 @@
 import * as React from "react";
 import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { CANTONS, CONDITIONS, PROPERTY_TYPE_OPTIONS, type OfferType, type PropertyCondition, type PropertyType } from "@/lib/constants";
+import { formatNumber } from "@/lib/format";
 import type { SearchCriteria } from "@/lib/search/criteria";
+import {
+  AREA_STEPS,
+  FEATURE_FILTERS,
+  PLOT_STEPS,
+  ROOM_STEPS,
+  YEAR_STEPS,
+  maxOptions,
+  minOptions,
+  priceSteps,
+} from "@/lib/search/filter-options";
 import { useSearch } from "@/components/search/search-context";
-import { DebouncedNumberInput } from "@/components/search/debounced-number-input";
 import { LOCATION_KEYS, patchCriteria, withoutFilters } from "@/components/search/url-state";
 import { cn } from "@/lib/utils";
 
-const ROOM_STEPS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 7, 8];
-
-type BooleanKey = "balcony" | "terrace" | "garden" | "parking" | "garage" | "elevator" | "wheelchair" | "new_build" | "pets";
-
-export const AMENITY_FILTERS: { key: BooleanKey; label: string; rentOnly?: boolean }[] = [
-  { key: "balcony", label: "Balkon" },
-  { key: "terrace", label: "Terrasse" },
-  { key: "garden", label: "Garten" },
-  { key: "parking", label: "Parkplatz" },
-  { key: "garage", label: "Garage" },
-  { key: "elevator", label: "Lift" },
-  { key: "wheelchair", label: "Rollstuhlgängig" },
-  { key: "new_build", label: "Neubau" },
-  { key: "pets", label: "Haustiere erlaubt", rentOnly: true },
-];
+/** Merkmale für die Chips der aktiven Filter (gleiche Reihenfolge wie im Filter) */
+export const AMENITY_FILTERS = FEATURE_FILTERS;
 
 const OFFER_CHOICES: { value: OfferType | undefined; label: string }[] = [
   { value: undefined, label: "Alle" },
@@ -48,32 +44,101 @@ function FilterSection({ title, children, className }: { title: string; children
   );
 }
 
-function CheckboxOption({ id, label, checked, onChange }: { id: string; label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+/** Umschaltbarer Chip (Objektart, Merkmale, Zustand) */
+function Pill({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-9 items-center gap-3">
-      <Checkbox id={id} checked={checked} onCheckedChange={(v) => onChange(v === true)} />
-      <Label htmlFor={id} className="cursor-pointer font-medium">
-        {label}
-      </Label>
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={cn(
+        "inline-flex min-h-9 items-center rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        pressed ? "border-forest bg-forest text-white" : "border-border bg-card text-foreground hover:border-forest/40 hover:bg-mint-50",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** «Kein Min.» bis «Kein Max.» mit Vorschlagswerten; die Auswahl schliesst widersprüchliche Werte aus. */
+function RangeSelect({
+  id,
+  label,
+  steps,
+  min,
+  max,
+  format,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  steps: number[];
+  min: number | undefined;
+  max: number | undefined;
+  format: (value: number) => string;
+  onChange: (min: number | undefined, max: number | undefined) => void;
+}) {
+  const parse = (value: string) => (value ? Number(value) : undefined);
+  // In der schmalen Seitenleiste ohne «bis» und mit kleinerer Schrift, damit die Werte lesbar bleiben
+  const selectClass = "pl-3 pr-8 text-sm @[20rem]:pl-3.5 @[20rem]:text-[0.9375rem]";
+  return (
+    <div className="grid grid-cols-2 items-center gap-2 @[20rem]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+      <NativeSelect
+        id={`${id}-von`}
+        aria-label={`${label} von`}
+        className={selectClass}
+        value={min ?? ""}
+        onChange={(e) => onChange(parse(e.target.value), max)}
+      >
+        <option value="">Kein Min.</option>
+        {minOptions(steps, min, max).map((v) => (
+          <option key={v} value={v}>
+            {format(v)}
+          </option>
+        ))}
+      </NativeSelect>
+      <span aria-hidden className="hidden text-sm text-muted-foreground @[20rem]:inline">
+        bis
+      </span>
+      <NativeSelect
+        id={`${id}-bis`}
+        aria-label={`${label} bis`}
+        className={selectClass}
+        value={max ?? ""}
+        onChange={(e) => onChange(min, parse(e.target.value))}
+      >
+        <option value="">Kein Max.</option>
+        {maxOptions(steps, max, min).map((v) => (
+          <option key={v} value={v}>
+            {format(v)}
+          </option>
+        ))}
+      </NativeSelect>
     </div>
   );
 }
 
+const rooms = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
+const squareMetres = (v: number) => `${formatNumber(v)} m²`;
+
 /**
- * Alle Suchfilter gemäss Spezifikation. Änderungen werden sofort (Zahlenfelder verzögert)
- * in die URL übernommen; die Trefferliste aktualisiert sich serverseitig.
+ * Alle Suchfilter. Änderungen werden sofort in die URL übernommen; die Trefferliste aktualisiert sich serverseitig.
  */
 export function FilterPanel({
   idPrefix,
   className,
   footer,
   routeChangeHash,
+  showReset = true,
 }: {
   idPrefix: string;
   className?: string;
   footer?: React.ReactNode;
   /** Anker für Wechsel der Angebotsart (neue Route), damit ein umgebendes Sheet wieder aufgeht */
   routeChangeHash?: string;
+  /** «Filter zurücksetzen» unten anzeigen (im Sheet steht der Knopf im Kopf) */
+  showReset?: boolean;
 }) {
   const { snapshot, navigate } = useSearch();
   const criteria = snapshot.criteria;
@@ -81,16 +146,16 @@ export function FilterPanel({
 
   const update = (patch: Partial<SearchCriteria>) => navigate({ criteria: patchCriteria(criteria, patch) });
 
-  function toggleInList<T extends string>(list: T[] | undefined, value: T, on: boolean): T[] | undefined {
+  function toggleInList<T extends string>(list: T[] | undefined, value: T): T[] | undefined {
     const next = new Set(list ?? []);
-    if (on) next.add(value);
-    else next.delete(value);
+    if (next.has(value)) next.delete(value);
+    else next.add(value);
     return next.size ? [...next] : undefined;
   }
 
   function setOffer(next: OfferType | undefined) {
     if (next === offer) return;
-    // Jede Angebotsart hat eine eigene Route (/immobilien, /kaufen, /mieten)
+    // Jede Angebotsart hat eine eigene Route (/immobilien, /kaufen, /mieten); Preise passen nicht zur anderen Art
     navigate(
       { criteria: patchCriteria(criteria, { offer: next, price_min: undefined, price_max: undefined, pets: next === "rent" ? criteria.pets : undefined }) },
       { hash: routeChangeHash },
@@ -108,11 +173,11 @@ export function FilterPanel({
     navigate({ criteria: patchCriteria(criteria, { ...cleared, canton: code }), bbox: null });
   }
 
-  const priceLabel = offer === "rent" ? "Miete pro Monat (brutto)" : offer === "sale" ? "Kaufpreis" : "Preis";
+  const priceLabel = offer === "rent" ? "Miete pro Monat (CHF)" : offer === "sale" ? "Kaufpreis (CHF)" : "Preis (CHF)";
   const id = (name: string) => `${idPrefix}-${name}`;
 
   return (
-    <div className={cn("grid gap-5", className)}>
+    <div className={cn("@container grid gap-5", className)}>
       <FilterSection title="Angebot">
         <div role="group" aria-label="Angebotsart" className="grid grid-cols-3 gap-1 rounded-xl bg-muted p-1">
           {OFFER_CHOICES.map((choice) => {
@@ -135,146 +200,145 @@ export function FilterPanel({
         </div>
       </FilterSection>
 
-      <FilterSection title="Immobilientyp">
-        <div className="grid gap-x-4 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-1">
+      <FilterSection title="Objektart">
+        <div className="flex flex-wrap gap-2">
           {PROPERTY_TYPE_OPTIONS.map((option) => (
-            <CheckboxOption
+            <Pill
               key={option.value}
-              id={id(`typ-${option.value}`)}
-              label={option.label}
-              checked={criteria.types?.includes(option.value) ?? false}
-              onChange={(on) => update({ types: toggleInList<PropertyType>(criteria.types, option.value, on) })}
-            />
+              pressed={criteria.types?.includes(option.value) ?? false}
+              onClick={() => update({ types: toggleInList<PropertyType>(criteria.types, option.value) })}
+            >
+              {option.label}
+            </Pill>
           ))}
         </div>
       </FilterSection>
 
       <FilterSection title={priceLabel}>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="von" htmlFor={id("preis-von")}>
-            <DebouncedNumberInput id={id("preis-von")} prefix="CHF" value={criteria.price_min} onCommit={(v) => update({ price_min: v })} placeholder="0" />
-          </Field>
-          <Field label="bis" htmlFor={id("preis-bis")}>
-            <DebouncedNumberInput id={id("preis-bis")} prefix="CHF" value={criteria.price_max} onCommit={(v) => update({ price_max: v })} placeholder="beliebig" />
-          </Field>
+        <RangeSelect
+          id={id("preis")}
+          label="Preis"
+          steps={priceSteps(offer)}
+          min={criteria.price_min}
+          max={criteria.price_max}
+          format={(v) => formatNumber(v)}
+          onChange={(price_min, price_max) => update({ price_min, price_max })}
+        />
+        {offer === "rent" ? <p className="text-xs text-muted-foreground">Miete inklusive Nebenkosten.</p> : null}
+        <div className="flex min-h-9 items-center justify-between gap-4">
+          <Label htmlFor={id("mit-preis")} className="cursor-pointer font-medium">
+            Nur Inserate mit Preis
+          </Label>
+          <Switch id={id("mit-preis")} checked={criteria.with_price === true} onCheckedChange={(on) => update({ with_price: on ? true : undefined })} />
         </div>
-        {offer === "rent" ? <p className="text-xs text-muted-foreground">Nettomiete inklusive Nebenkosten.</p> : null}
       </FilterSection>
 
       <FilterSection title="Zimmer">
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="von" htmlFor={id("zimmer-von")}>
-            <NativeSelect
-              id={id("zimmer-von")}
-              value={criteria.rooms_min ?? ""}
-              onChange={(e) => update({ rooms_min: e.target.value ? Number(e.target.value) : undefined })}
-            >
-              <option value="">beliebig</option>
-              {ROOM_STEPS.map((r) => (
-                <option key={r} value={r}>
-                  {Number.isInteger(r) ? r : r.toFixed(1)}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field label="bis" htmlFor={id("zimmer-bis")}>
-            <NativeSelect
-              id={id("zimmer-bis")}
-              value={criteria.rooms_max ?? ""}
-              onChange={(e) => update({ rooms_max: e.target.value ? Number(e.target.value) : undefined })}
-            >
-              <option value="">beliebig</option>
-              {ROOM_STEPS.map((r) => (
-                <option key={r} value={r}>
-                  {Number.isInteger(r) ? r : r.toFixed(1)}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-        </div>
+        <RangeSelect
+          id={id("zimmer")}
+          label="Zimmer"
+          steps={ROOM_STEPS}
+          min={criteria.rooms_min}
+          max={criteria.rooms_max}
+          format={rooms}
+          onChange={(rooms_min, rooms_max) => update({ rooms_min, rooms_max })}
+        />
       </FilterSection>
 
       <FilterSection title="Wohnfläche">
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="von" htmlFor={id("flaeche-von")}>
-            <DebouncedNumberInput id={id("flaeche-von")} suffix="m²" maxDigits={6} value={criteria.area_min} onCommit={(v) => update({ area_min: v })} />
-          </Field>
-          <Field label="bis" htmlFor={id("flaeche-bis")}>
-            <DebouncedNumberInput id={id("flaeche-bis")} suffix="m²" maxDigits={6} value={criteria.area_max} onCommit={(v) => update({ area_max: v })} />
-          </Field>
-        </div>
+        <RangeSelect
+          id={id("flaeche")}
+          label="Wohnfläche"
+          steps={AREA_STEPS}
+          min={criteria.area_min}
+          max={criteria.area_max}
+          format={squareMetres}
+          onChange={(area_min, area_max) => update({ area_min, area_max })}
+        />
       </FilterSection>
 
-      <FilterSection title="Region">
-        <Field label="Kanton" htmlFor={id("kanton")}>
-          <NativeSelect id={id("kanton")} value={criteria.canton ?? ""} onChange={(e) => setCanton(e.target.value)}>
-            <option value="">Alle Kantone</option>
-            {CANTONS.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.name}
-              </option>
-            ))}
-          </NativeSelect>
-        </Field>
+      <FilterSection title="Grundstücksfläche">
+        <RangeSelect
+          id={id("grundstueck")}
+          label="Grundstücksfläche"
+          steps={PLOT_STEPS}
+          min={criteria.plot_min}
+          max={criteria.plot_max}
+          format={squareMetres}
+          onChange={(plot_min, plot_max) => update({ plot_min, plot_max })}
+        />
       </FilterSection>
 
-      <FilterSection title="Ausstattung">
-        <div className="grid gap-x-4 gap-y-0.5 sm:grid-cols-2 lg:grid-cols-1">
-          {AMENITY_FILTERS.filter((a) => !a.rentOnly || offer === "rent").map((amenity) => (
-            <CheckboxOption
-              key={amenity.key}
-              id={id(`merkmal-${amenity.key}`)}
-              label={amenity.label}
-              checked={criteria[amenity.key] === true}
-              onChange={(on) => {
+      <FilterSection title="Merkmale und Ausstattung">
+        <div className="flex flex-wrap gap-2">
+          {FEATURE_FILTERS.filter((f) => !f.rentOnly || offer === "rent").map((feature) => (
+            <Pill
+              key={feature.key}
+              pressed={criteria[feature.key] === true}
+              onClick={() => {
                 const patch: Partial<SearchCriteria> = {};
-                patch[amenity.key] = on ? true : undefined;
+                patch[feature.key] = criteria[feature.key] === true ? undefined : true;
                 update(patch);
               }}
-            />
+            >
+              {feature.label}
+            </Pill>
           ))}
         </div>
-        {offer !== "rent" ? (
-          <p className="text-xs text-muted-foreground">Der Filter «Haustiere erlaubt» steht bei Mietobjekten zur Verfügung.</p>
-        ) : null}
+        {offer !== "rent" ? <p className="text-xs text-muted-foreground">«Haustiere erlaubt» gibt es bei Mietobjekten.</p> : null}
       </FilterSection>
 
-      <FilterSection title="Weitere Angaben">
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Grundstück ab" htmlFor={id("grundstueck")}>
-            <DebouncedNumberInput id={id("grundstueck")} suffix="m²" maxDigits={7} value={criteria.plot_min} onCommit={(v) => update({ plot_min: v })} />
-          </Field>
-          <Field label="Baujahr ab" htmlFor={id("baujahr")}>
-            <DebouncedNumberInput
-              id={id("baujahr")}
-              grouping={false}
-              maxDigits={4}
-              placeholder="z. B. 2000"
-              value={criteria.year_min}
-              onCommit={(v) => update({ year_min: v !== undefined && v >= 1000 && v <= 2100 ? v : undefined })}
-            />
-          </Field>
-        </div>
-        <div className="grid gap-y-0.5">
-          <p className="mt-1 text-sm font-semibold">Zustand</p>
+      <FilterSection title="Zustand">
+        <div className="flex flex-wrap gap-2">
           {(Object.entries(CONDITIONS) as [PropertyCondition, string][]).map(([value, label]) => (
-            <CheckboxOption
+            <Pill
               key={value}
-              id={id(`zustand-${value}`)}
-              label={label}
-              checked={criteria.conditions?.includes(value) ?? false}
-              onChange={(on) => update({ conditions: toggleInList<PropertyCondition>(criteria.conditions, value, on) })}
-            />
+              pressed={criteria.conditions?.includes(value) ?? false}
+              onClick={() => update({ conditions: toggleInList<PropertyCondition>(criteria.conditions, value) })}
+            >
+              {label}
+            </Pill>
           ))}
         </div>
       </FilterSection>
 
-      <div className="grid gap-2 border-t border-border pt-5">
-        {footer}
-        <Button type="button" variant="ghost" onClick={() => navigate({ criteria: withoutFilters(criteria) })}>
-          <RotateCcw aria-hidden /> Filter zurücksetzen
-        </Button>
-      </div>
+      <FilterSection title="Baujahr">
+        <NativeSelect
+          id={id("baujahr")}
+          aria-label="Baujahr ab"
+          value={criteria.year_min ?? ""}
+          onChange={(e) => update({ year_min: e.target.value ? Number(e.target.value) : undefined })}
+        >
+          <option value="">Alle</option>
+          {minOptions(YEAR_STEPS, criteria.year_min, undefined).map((year) => (
+            <option key={year} value={year}>
+              ab {year}
+            </option>
+          ))}
+        </NativeSelect>
+      </FilterSection>
+
+      <FilterSection title="Kanton">
+        <NativeSelect id={id("kanton")} aria-label="Kanton" value={criteria.canton ?? ""} onChange={(e) => setCanton(e.target.value)}>
+          <option value="">Alle Kantone</option>
+          {CANTONS.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.name}
+            </option>
+          ))}
+        </NativeSelect>
+      </FilterSection>
+
+      {footer || showReset ? (
+        <div className="grid gap-2 border-t border-border pt-5">
+          {footer}
+          {showReset ? (
+            <Button type="button" variant="ghost" onClick={() => navigate({ criteria: withoutFilters(criteria) })}>
+              <RotateCcw aria-hidden /> Filter zurücksetzen
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -45,6 +45,7 @@ export const searchCriteriaSchema = z.object({
   area_min: optionalNumber,
   area_max: optionalNumber,
   plot_min: optionalNumber,
+  plot_max: optionalNumber,
   year_min: optionalNumber,
   conditions: z.array(z.enum(CONDITION_VALUES)).max(5).optional(),
   balcony: optionalBool,
@@ -56,6 +57,9 @@ export const searchCriteriaSchema = z.object({
   pets: optionalBool,
   new_build: optionalBool,
   wheelchair: optionalBool,
+  minergie: optionalBool,
+  /** nur Inserate mit Preis (ohne «Preis auf Anfrage») */
+  with_price: optionalBool,
 });
 export type SearchCriteria = z.infer<typeof searchCriteriaSchema>;
 
@@ -78,6 +82,7 @@ const PARAM_KEYS: Record<string, keyof SearchCriteria> = {
   flaeche_von: "area_min",
   flaeche_bis: "area_max",
   grundstueck_von: "plot_min",
+  grundstueck_bis: "plot_max",
   baujahr_von: "year_min",
   zustand: "conditions",
   balkon: "balcony",
@@ -89,6 +94,8 @@ const PARAM_KEYS: Record<string, keyof SearchCriteria> = {
   haustiere: "pets",
   neubau: "new_build",
   rollstuhl: "wheelchair",
+  minergie: "minergie",
+  mit_preis: "with_price",
 };
 const ARRAY_KEYS = new Set<keyof SearchCriteria>(["types", "conditions"]);
 
@@ -181,7 +188,8 @@ export function toRpcArgs(
   const args: SearchArgs = {
     p_offer_type: criteria.offer,
     p_property_types: criteria.types?.length ? criteria.types : undefined,
-    p_canton: criteria.canton,
+    // Umkreis über die Kantonsgrenze hinaus: mit Umkreis zählt der Kanton der Gemeinde nicht
+    p_canton: hasRadius ? undefined : criteria.canton,
     p_municipality: hasRadius ? undefined : criteria.municipality,
     p_postal_code: hasRadius ? undefined : criteria.postal_code,
     p_query: criteria.canton || criteria.municipality || criteria.postal_code || hasRadius ? undefined : criteria.q,
@@ -196,6 +204,7 @@ export function toRpcArgs(
     p_area_min: criteria.area_min,
     p_area_max: criteria.area_max,
     p_plot_min: criteria.plot_min,
+    p_plot_max: criteria.plot_max,
     p_year_min: criteria.year_min,
     p_conditions: criteria.conditions?.length ? criteria.conditions : undefined,
     p_balcony: criteria.balcony,
@@ -207,6 +216,8 @@ export function toRpcArgs(
     p_pets: criteria.pets,
     p_new_build: criteria.new_build,
     p_wheelchair: criteria.wheelchair,
+    p_minergie: criteria.minergie,
+    p_with_price: criteria.with_price,
     p_sort: options.sort === "distance" && !hasRadius ? "newest" : options.sort,
     p_limit: options.limit,
     p_offset: options.offset,
@@ -231,6 +242,13 @@ export function describeCriteria(criteria: SearchCriteria): string {
   if (criteria.rooms_min) parts.push(`ab ${formatNumber(criteria.rooms_min, 1)} Zimmer`);
   if (criteria.price_max) parts.push(`bis ${formatChf(criteria.price_max)}`);
   if (criteria.area_min) parts.push(`ab ${formatArea(criteria.area_min)}`);
+  if (criteria.plot_min || criteria.plot_max) {
+    parts.push(
+      `Grundstück ${criteria.plot_min ? `ab ${formatArea(criteria.plot_min)}` : ""}${criteria.plot_min && criteria.plot_max ? " " : ""}${criteria.plot_max ? `bis ${formatArea(criteria.plot_max)}` : ""}`,
+    );
+  }
+  if (criteria.minergie) parts.push("Minergie");
+  if (criteria.with_price) parts.push("nur mit Preis");
   if (criteria.conditions?.length) parts.push(criteria.conditions.map((c) => CONDITIONS[c]).join(", "));
   return parts.join(" · ");
 }

@@ -148,8 +148,9 @@ describe("toRpcArgs", () => {
   });
 
   it("verwendet bei Umkreissuche Koordinaten statt Gemeinde und PLZ", () => {
-    const args = toRpcArgs({ municipality: "Bern", postal_code: "3011", lat: 46.95, lng: 7.44, radius: 10, q: "Bern" }, { sort: "distance" });
+    const args = toRpcArgs({ municipality: "Bern", canton: "BE", postal_code: "3011", lat: 46.95, lng: 7.44, radius: 10, q: "Bern" }, { sort: "distance" });
     expect(args.p_municipality).toBeUndefined();
+    expect(args.p_canton).toBeUndefined();
     expect(args.p_postal_code).toBeUndefined();
     expect(args.p_query).toBeUndefined();
     expect(args.p_lat).toBe(46.95);
@@ -199,5 +200,25 @@ describe("toSavedCriteria, describeCriteria und countActiveFilters", () => {
   it("zählt Filter ohne Ort und Angebotsart", () => {
     expect(countActiveFilters({ offer: "sale", municipality: "Bern", label: "Bern (BE)" })).toBe(0);
     expect(countActiveFilters({ types: ["apartment"], price_max: 1, balcony: true })).toBe(3);
+  });
+});
+
+describe("neue Filter: nur mit Preis, Minergie, Grundstück bis", () => {
+  it("liest und schreibt die URL-Parameter", () => {
+    const state = parseSearchParams(new URLSearchParams("mit_preis=1&minergie=1&grundstueck_von=400&grundstueck_bis=1'200"));
+    expect(state.criteria).toEqual({ with_price: true, minergie: true, plot_min: 400, plot_max: 1200 });
+    const params = toSearchParams({ criteria: state.criteria });
+    expect(params.get("mit_preis")).toBe("1");
+    expect(params.get("minergie")).toBe("1");
+    expect(params.get("grundstueck_bis")).toBe("1200");
+    expect(parseSearchParams(params).criteria).toEqual(state.criteria);
+  });
+
+  it("übergibt sie an search_listings und zählt sie als aktive Filter", () => {
+    const criteria: SearchCriteria = { offer: "sale", with_price: true, minergie: true, plot_max: 800 };
+    expect(toRpcArgs(criteria)).toMatchObject({ p_with_price: true, p_minergie: true, p_plot_max: 800 });
+    expect(countActiveFilters(criteria)).toBe(3);
+    expect(toSavedCriteria(criteria)).toEqual(criteria);
+    expect(describeCriteria(criteria)).toContain("Minergie");
   });
 });

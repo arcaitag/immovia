@@ -203,6 +203,46 @@ describe("Suche und Suchabos", () => {
     });
   });
 
+  it("filtert nach Preisangabe, Minergie und Grundstücksfläche – auch in Suchabos", async () => {
+    // eigene Testwerte in einer Transaktion, die am Ende zurückgerollt wird
+    await db.query("begin");
+    try {
+      // Objektdaten werden aus der Immobilie ins Inserat übernommen (Trigger), deshalb dort setzen
+      await db.query("update public.properties set is_minergie = true, plot_area = 400 where id = (select property_id from public.listings where id = $1)", [
+        IDS.listing,
+      ]);
+      await db.query("update public.listings set price_on_request = true where id <> $1", [IDS.listing]);
+      const matches = async (criteria: object) =>
+        (await db.query<{ ok: boolean }>("select public.saved_search_matches_listing($1::jsonb, $2) as ok", [JSON.stringify(criteria), IDS.listing]))
+          .rows[0]!.ok;
+      expect(await matches({ minergie: true, with_price: true, plot_max: 500 })).toBe(true);
+      expect(await matches({ plot_max: 300 })).toBe(false);
+
+      await db.query("set local role anon");
+      const ids = async (sql: string) => (await db.query<{ id: string }>(sql)).rows.map((r) => r.id);
+      expect(await ids("select id from public.search_listings(p_minergie => true, p_limit => 100)")).toEqual([IDS.listing]);
+      expect(await ids("select id from public.search_listings(p_with_price => true, p_limit => 100)")).toEqual([IDS.listing]);
+      expect(await ids("select id from public.search_listings(p_plot_max => 500, p_limit => 100)")).toEqual([IDS.listing]);
+      expect(await ids("select id from public.search_listings(p_plot_max => 300, p_limit => 100)")).toEqual([]);
+      // ausgeschaltete Filter schränken nicht ein
+      const all = await ids("select id from public.search_listings(p_limit => 100)");
+      expect(await ids("select id from public.search_listings(p_with_price => false, p_minergie => false, p_limit => 100)")).toHaveLength(all.length);
+    } finally {
+      await db.query("rollback");
+    }
+  });
+
+  it("Suchabos mit Umkreis finden auch Inserate ausserhalb der gewählten Gemeinde (wie die Trefferliste)", async () => {
+    const matches = async (criteria: object) =>
+      (await db.query<{ ok: boolean }>("select public.saved_search_matches_listing($1::jsonb, $2) as ok", [JSON.stringify(criteria), IDS.orgListing]))
+        .rows[0]!.ok;
+    // Inserat in Zürich; Gemeinde im Suchabo ist eine andere, der Umkreis um die Koordinaten umfasst Zürich
+    expect(await matches({ label: "Umgebung", municipality: "Dübendorf", lat: 47.37, lng: 8.54, radius: 5 })).toBe(true);
+    expect(await matches({ municipality: "Dübendorf" })).toBe(false);
+    // Freitext gilt nur ohne Ort
+    expect(await matches({ q: "gibt es nicht", municipality: "Zürich" })).toBe(true);
+  });
+
   it("Umkreissuche findet Inserate in der Nähe", async () => {
     await withSession(db, { role: "anon" }, async (s) => {
       const near = await s.query<{ municipality: string; distance_km: number }>(

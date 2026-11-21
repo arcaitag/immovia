@@ -2633,9 +2633,9 @@ export type Database = {
           analytics_consent: boolean;
           marketing_consent: boolean;
           ai_processing_consent: boolean;
-          ai_image_consent: boolean;
           created_at: string;
           updated_at: string;
+          ai_image_consent: boolean;
         };
         Insert: {
           user_id: string;
@@ -2644,9 +2644,9 @@ export type Database = {
           analytics_consent?: boolean;
           marketing_consent?: boolean;
           ai_processing_consent?: boolean;
-          ai_image_consent?: boolean;
           created_at?: string;
           updated_at?: string;
+          ai_image_consent?: boolean;
         };
         Update: {
           user_id?: string;
@@ -2655,9 +2655,9 @@ export type Database = {
           analytics_consent?: boolean;
           marketing_consent?: boolean;
           ai_processing_consent?: boolean;
-          ai_image_consent?: boolean;
           created_at?: string;
           updated_at?: string;
+          ai_image_consent?: boolean;
         };
         Relationships: [
           {
@@ -3493,7 +3493,7 @@ export type Database = {
         Returns: boolean;
       };
       search_listings: {
-        Args: { p_offer_type?: Database["public"]["Enums"]["offer_type"]; p_property_types?: Database["public"]["Enums"]["property_type"][]; p_canton?: string; p_municipality?: string; p_postal_code?: string; p_query?: string; p_lat?: number; p_lng?: number; p_radius_km?: number; p_bbox?: number[]; p_price_min?: number; p_price_max?: number; p_rooms_min?: number; p_rooms_max?: number; p_area_min?: number; p_area_max?: number; p_plot_min?: number; p_year_min?: number; p_conditions?: Database["public"]["Enums"]["property_condition"][]; p_balcony?: boolean; p_terrace?: boolean; p_garden?: boolean; p_parking?: boolean; p_garage?: boolean; p_elevator?: boolean; p_pets?: boolean; p_new_build?: boolean; p_wheelchair?: boolean; p_listing_ids?: string[]; p_sort?: string; p_limit?: number; p_offset?: number };
+        Args: { p_offer_type?: Database["public"]["Enums"]["offer_type"]; p_property_types?: Database["public"]["Enums"]["property_type"][]; p_canton?: string; p_municipality?: string; p_postal_code?: string; p_query?: string; p_lat?: number; p_lng?: number; p_radius_km?: number; p_bbox?: number[]; p_price_min?: number; p_price_max?: number; p_rooms_min?: number; p_rooms_max?: number; p_area_min?: number; p_area_max?: number; p_plot_min?: number; p_year_min?: number; p_conditions?: Database["public"]["Enums"]["property_condition"][]; p_balcony?: boolean; p_terrace?: boolean; p_garden?: boolean; p_parking?: boolean; p_garage?: boolean; p_elevator?: boolean; p_pets?: boolean; p_new_build?: boolean; p_wheelchair?: boolean; p_minergie?: boolean; p_with_price?: boolean; p_plot_max?: number; p_listing_ids?: string[]; p_sort?: string; p_limit?: number; p_offset?: number };
         Returns: {
           id: string | null;
           slug: string | null;
@@ -3540,6 +3540,10 @@ export type Database = {
         Args: { p_value: string };
         Returns: string;
       };
+      soft_delete_property: {
+        Args: { p_property: string };
+        Returns: string[];
+      };
       storage_cleanup_candidates: {
         Args: { p_limit?: number };
         Returns: {
@@ -3547,10 +3551,6 @@ export type Database = {
           name: string | null;
           reason: string | null;
         }[];
-      };
-      soft_delete_property: {
-        Args: { p_property: string };
-        Returns: string[];
       };
       submit_contact_request: {
         Args: { p_name: string; p_email: string; p_subject: string; p_message: string };

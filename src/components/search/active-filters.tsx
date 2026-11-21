@@ -49,7 +49,9 @@ export function buildChips(snapshot: SearchSnapshot): Chip[] {
   if (rooms) chips.push({ key: "zimmer", label: `${rooms} Zimmer`, remove: without({ rooms_min: undefined, rooms_max: undefined }) });
   const area = range(c.area_min, c.area_max, (n) => formatArea(n));
   if (area) chips.push({ key: "flaeche", label: `Wohnfläche ${area}`, remove: without({ area_min: undefined, area_max: undefined }) });
-  if (c.plot_min !== undefined) chips.push({ key: "grundstueck", label: `Grundstück ab ${formatArea(c.plot_min)}`, remove: without({ plot_min: undefined }) });
+  const plot = range(c.plot_min, c.plot_max, (n) => formatArea(n));
+  if (plot) chips.push({ key: "grundstueck", label: `Grundstück ${plot}`, remove: without({ plot_min: undefined, plot_max: undefined }) });
+  if (c.with_price) chips.push({ key: "mit-preis", label: "Nur mit Preis", remove: without({ with_price: undefined }) });
   if (c.year_min !== undefined) chips.push({ key: "baujahr", label: `Baujahr ab ${c.year_min}`, remove: without({ year_min: undefined }) });
   for (const condition of c.conditions ?? []) {
     chips.push({

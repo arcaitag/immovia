@@ -77,10 +77,11 @@ export function placeFromSuggestion(result: PlaceSuggestion): PlaceFilter {
   switch (result.kind) {
     case "canton":
       return { label: result.label, canton: result.canton };
+    // Koordinaten behalten: im Filter lässt sich ein Umkreis um den Ort wählen (wie auf der Website)
     case "postal_code":
-      return { label: result.label, postalCode: result.postalCode };
+      return { label: result.label, postalCode: result.postalCode, lat: result.lat, lng: result.lng };
     case "municipality":
-      return { label: result.label, municipality: result.municipality, canton: result.canton };
+      return { label: result.label, municipality: result.municipality, canton: result.canton, lat: result.lat, lng: result.lng };
     default:
       // Adresse oder Bezirk: Inserate im Umkreis – die genaue Adresse eines Inserats ist oft nicht öffentlich
       return { label: result.label, lat: result.lat, lng: result.lng, radiusKm: ADDRESS_RADIUS_KM };

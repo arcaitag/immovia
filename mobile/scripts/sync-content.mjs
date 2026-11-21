@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Übernimmt die Inhalte der Website (FAQ, Ratgeber, Marketingbilder) unverändert in die App.
+ * Übernimmt die Inhalte der Website (FAQ, Ratgeber, Marketingbilder, Auswahlwerte der Filter) unverändert in die App.
  * Die Website bleibt die Quelle; nach Textänderungen dort: `node mobile/scripts/sync-content.mjs`.
  * Mit `--check` wird nur geprüft, ob die Kopien aktuell sind (Exit-Code 1 bei Abweichung).
  */
@@ -13,6 +13,7 @@ export const FILES = [
   ["src/lib/marketing-images.ts", "mobile/src/lib/marketing-images.ts"],
   ["src/lib/content/faq.ts", "mobile/src/lib/content/faq.ts"],
   ["src/lib/content/ratgeber.ts", "mobile/src/lib/content/ratgeber.ts"],
+  ["src/lib/search/filter-options.ts", "mobile/src/lib/filter-options.ts"],
 ];
 export const HEADER = "// Kopie der Website-Datei – nicht hier bearbeiten, sondern mit mobile/scripts/sync-content.mjs erneuern.\n";
 

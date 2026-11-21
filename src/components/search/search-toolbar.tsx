@@ -12,6 +12,7 @@ import { useSearch } from "@/components/search/search-context";
 import { FilterPanel } from "@/components/search/filter-panel";
 import { useMediaQuery } from "@/components/search/use-media-query";
 import { clearLocationHash, useLocationHash } from "@/components/search/use-location-hash";
+import { withoutFilters } from "@/components/search/url-state";
 import { SaveSearchButton } from "@/components/saved-searches/save-search-dialog";
 import type { SearchView } from "@/components/search/url-state";
 
@@ -94,22 +95,31 @@ export function SearchToolbar() {
             </Button>
           </SheetTrigger>
           <SheetContent side={isDesktop ? "right" : "bottom"} className={cn("gap-0 p-0", isDesktop ? "sm:max-w-md" : "h-[90dvh]")}>
-            <SheetHeader className="border-b border-border">
-              <SheetTitle>Filter</SheetTitle>
+            <SheetHeader className="border-b border-border pr-14">
+              <div className="flex items-center justify-between gap-3">
+                <SheetTitle>Filter</SheetTitle>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={!activeCount}
+                  onClick={() => navigate({ criteria: withoutFilters(criteria), bbox: null })}
+                >
+                  Zurücksetzen
+                </Button>
+              </div>
               <SheetDescription>Die Treffer werden direkt aktualisiert.</SheetDescription>
             </SheetHeader>
             <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5">
-              <FilterPanel
-                idPrefix="filter-sheet"
-                routeChangeHash={FILTER_SHEET_HASH}
-                footer={
-                  <SheetClose asChild>
-                    <Button size="lg" className="w-full" aria-live="polite">
-                      {isPending ? "Treffer werden aktualisiert …" : `${pluralize(total, "Immobilie", "Immobilien")} anzeigen`}
-                    </Button>
-                  </SheetClose>
-                }
-              />
+              <FilterPanel idPrefix="filter-sheet" routeChangeHash={FILTER_SHEET_HASH} showReset={false} />
+            </div>
+            {/* fester Knopf am unteren Rand: zeigt laufend, wie viele Inserate passen */}
+            <div className="border-t border-border bg-card px-5 py-4">
+              <SheetClose asChild>
+                <Button size="lg" className="w-full" aria-live="polite">
+                  {isPending ? "Treffer werden gezählt …" : total ? `${pluralize(total, "Inserat", "Inserate")} anzeigen` : "Keine Inserate gefunden"}
+                </Button>
+              </SheetClose>
             </div>
           </SheetContent>
         </Sheet>
