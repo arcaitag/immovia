@@ -5,6 +5,7 @@ import * as React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { GALLERY_MAX, type GalleryImage, type SearchRow } from "@/lib/api";
+import { isDemo, showDemoNotice } from "@/lib/demo-listings";
 import { formatArea, formatPrice, formatRooms, imageUrl } from "@/lib/format";
 import { PROPERTY_TYPES } from "@/lib/labels";
 import { colors, palette } from "@/lib/theme";
@@ -13,6 +14,8 @@ import { colors, palette } from "@/lib/theme";
 const IMAGE_RATIO = 2.7;
 
 type Fact = { key: string; label: string; icon: "rooms" | "expand-outline" | "business-outline" };
+/** Foto der Karte: Adresse aus der Datenbank oder (bei Platzhaltern) ein Bild aus der App. */
+type CardImage = { key: string; source: string | number; ai: boolean };
 
 /**
  * Inseratkarte der Trefferliste («Alle anzeigen») und der Merkliste. Mit `gallery` lassen sich die Fotos wischen
@@ -30,14 +33,20 @@ export function ListingCard({
   gallery?: GalleryImage[];
 }) {
   const router = useRouter();
+  const demo = isDemo(row);
   const cover = imageUrl({ display_path: row.cover_path, external_url: row.cover_external_url }, "md");
   // Titelbild der Suche zuerst, dann die übrigen Fotos. Ob das Titelbild eine KI-Visualisierung ist,
   // steht in den Galeriedaten (ohne diese bleibt es ungekennzeichnet, bis sie geladen sind).
+  // Platzhalter (siehe lib/demo-listings) bringen ihre Fotos selbst mit.
   const others = (gallery ?? []).filter((image) => image.url !== cover);
-  const images: GalleryImage[] = [
-    ...(cover ? [{ url: cover, ai: Boolean(gallery?.some((image) => image.url === cover && image.ai)) }] : []),
-    ...others,
-  ].slice(0, GALLERY_MAX);
+  const images: CardImage[] = demo
+    ? row.demoPhotos.map((source, i) => ({ key: `beispiel-${i}`, source, ai: false }))
+    : [
+        ...(cover ? [{ url: cover, ai: Boolean(gallery?.some((image) => image.url === cover && image.ai)) }] : []),
+        ...others,
+      ]
+        .slice(0, GALLERY_MAX)
+        .map((image) => ({ key: image.url, source: image.url, ai: image.ai }));
   const [width, setWidth] = React.useState(0);
   const [index, setIndex] = React.useState(0);
 
@@ -47,12 +56,15 @@ export function ListingCard({
     { key: "area", label: formatArea(row.living_area ?? row.plot_area) ?? "", icon: "expand-outline" as const },
     { key: "type", label: PROPERTY_TYPES[row.property_type] ?? "", icon: "business-outline" as const },
   ].filter((fact) => fact.label);
-  const open = () => row.slug && router.push({ pathname: "/inserat/[slug]", params: { slug: row.slug } });
+  const open = () => {
+    if (demo) return showDemoNotice();
+    if (row.slug) router.push({ pathname: "/inserat/[slug]", params: { slug: row.slug } });
+  };
 
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`${row.title ?? "Inserat"}, ${formatPrice(row)}, ${place}${images[0]?.ai ? ", Titelbild: KI-Visualisierung" : ""}`}
+      accessibilityLabel={`${demo ? "Beispiel: " : ""}${row.title ?? "Inserat"}, ${formatPrice(row)}, ${place}${images[0]?.ai ? ", Titelbild: KI-Visualisierung" : ""}`}
       onPress={open}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.94 }]}
     >
@@ -71,15 +83,15 @@ export function ListingCard({
             style={StyleSheet.absoluteFill}
           >
             {images.map((image, i) => (
-              <View key={`${i}-${image.url}`} style={{ width, height: "100%" }}>
-                <Image source={image.url} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+              <View key={`${i}-${image.key}`} style={{ width, height: "100%" }}>
+                <Image source={image.source} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
                 {image.ai ? <AiTag /> : null}
               </View>
             ))}
           </ScrollView>
         ) : images[0] ? (
           <>
-            <Image source={images[0].url} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+            <Image source={images[0].source} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
             {images[0].ai ? <AiTag /> : null}
           </>
         ) : (
@@ -89,6 +101,11 @@ export function ListingCard({
         )}
 
         <View pointerEvents="none" style={styles.badges}>
+          {demo ? (
+            <View style={[styles.badge, { backgroundColor: "rgba(22,30,19,0.72)" }]}>
+              <Text style={styles.badgeText}>Beispiel</Text>
+            </View>
+          ) : null}
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{row.offer_type === "rent" ? "Mieten" : "Kaufen"}</Text>
           </View>
@@ -104,7 +121,7 @@ export function ListingCard({
           accessibilityLabel={favorite ? "Von der Merkliste entfernen" : "Auf die Merkliste setzen"}
           accessibilityState={{ selected: favorite }}
           hitSlop={8}
-          onPress={onToggleFavorite}
+          onPress={demo ? showDemoNotice : onToggleFavorite}
           style={styles.heart}
         >
           <Ionicons name={favorite ? "heart" : "heart-outline"} size={16} color={palette.heart} />
@@ -113,7 +130,7 @@ export function ListingCard({
         {images.length > 1 ? (
           <View pointerEvents="none" style={styles.dots}>
             {images.map((image, i) => (
-              <View key={`${i}-${image.url}`} style={[styles.dot, i === index && styles.dotActive]} />
+              <View key={`${i}-${image.key}`} style={[styles.dot, i === index && styles.dotActive]} />
             ))}
           </View>
         ) : null}

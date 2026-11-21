@@ -9,6 +9,7 @@ import { SaveSearchSheet } from "@/components/save-search-sheet";
 import { Button, EmptyState, Loading, Notice } from "@/components/ui";
 import { EMPTY_FILTERS, PAGE_SIZE, searchListings } from "@/lib/api";
 import { decodeFiltersParam } from "@/lib/api-account";
+import { demoRowsFor } from "@/lib/demo-listings";
 import { useAuth } from "@/lib/auth";
 import { useFavorites } from "@/lib/favorites";
 import { formatNumber } from "@/lib/format";
@@ -37,12 +38,16 @@ export default function ResultsScreen() {
   const pages = search.data?.pages ?? [];
   const rows = pages.flatMap((p) => p.rows);
   const total = pages[0]?.total ?? 0;
+  // Platzhalter für die Vorschau (lib/demo-listings), getrennt gezählt
+  const demos = search.isSuccess && !search.hasNextPage ? demoRowsFor(filters) : [];
+  const found = total === 1 ? "1 Immobilie gefunden" : `${formatNumber(total)} Immobilien gefunden`;
+  const countText = !search.isSuccess ? "" : demos.length === 0 ? found : total === 0 ? `${demos.length} Beispiele` : `${found} · ${demos.length} Beispiele`;
   const galleries = useListingGalleries(pages.map((page) => page.rows));
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.screen }}>
       <FlatList
-        data={rows}
+        data={[...rows, ...demos]}
         keyExtractor={(row) => row.id}
         renderItem={({ item }) => (
           <View style={styles.cardWrap}>
@@ -57,7 +62,7 @@ export default function ResultsScreen() {
         ListHeaderComponent={
           <View style={styles.resultRow}>
             <Text accessibilityRole="summary" style={styles.count}>
-              {search.isSuccess ? (total === 1 ? "1 Immobilie gefunden" : `${formatNumber(total)} Immobilien gefunden`) : ""}
+              {countText}
             </Text>
             <Pressable
               accessibilityRole="button"

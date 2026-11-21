@@ -13,6 +13,7 @@ import { PlaceSuggestions } from "@/components/place-suggestions";
 import { Button, Chip, EmptyState, Field, Notice, SectionTitle } from "@/components/ui";
 import { EMPTY_FILTERS, PAGE_SIZE, activeFilterCount, searchListings, type SearchFilters } from "@/lib/api";
 import { decodeFiltersParam, encodeFiltersParam } from "@/lib/api-account";
+import { demoRowsFor } from "@/lib/demo-listings";
 import { placeFromSuggestion, type PlaceSuggestion } from "@/lib/api-places";
 import { useFavorites } from "@/lib/favorites";
 import { formatNumber, parseNumber } from "@/lib/format";
@@ -89,6 +90,9 @@ export default function SearchScreen() {
   const pages = search.data?.pages ?? [];
   const rows = pages.flatMap((p) => p.rows);
   const total = pages[0]?.total ?? 0;
+  // Platzhalter für die Vorschau (lib/demo-listings) folgen nach den echten Inseraten, sobald alle geladen sind
+  const demos = search.isSuccess && !search.hasNextPage ? demoRowsFor(filters) : [];
+  const items = [...rows, ...demos];
   const count = activeFilterCount(filters);
   // Ohne Ort, Suchtext und Filter zeigt die Reihe die neuesten Inserate, sonst die Treffer der Suche
   const searching = Boolean(filters.query || filters.place || count > 0);
@@ -198,7 +202,7 @@ export default function SearchScreen() {
             <Notice tone="error">{errorMessage(search.error)}</Notice>
             <Button title="Erneut versuchen" variant="outline" onPress={() => search.refetch()} />
           </View>
-        ) : search.isSuccess && rows.length === 0 ? (
+        ) : search.isSuccess && items.length === 0 ? (
           <View style={styles.rowMessage}>
             <EmptyState
               icon="search-outline"
@@ -224,7 +228,7 @@ export default function SearchScreen() {
               <Text accessibilityRole="header" style={styles.sectionTitle} numberOfLines={1}>
                 {sectionTitle}
               </Text>
-              {total > 0 ? (
+              {items.length > 0 ? (
                 <Pressable
                   accessibilityRole="link"
                   accessibilityLabel="Alle anzeigen"
@@ -246,7 +250,7 @@ export default function SearchScreen() {
               // Waagrechte Reihe: die Karten rasten ein, beim Blättern werden laufend weitere Treffer geladen
               <FlatList
                 horizontal
-                data={rows}
+                data={items}
                 keyExtractor={(row) => row.id}
                 renderItem={({ item }) => (
                   <ListingTile row={item} gallery={galleries[item.id]} favorite={favorites.isFavorite(item.id)} onToggleFavorite={() => favorites.toggle(item.id)} />
