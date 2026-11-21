@@ -10,9 +10,11 @@ import { formatArea, formatPrice, imageUrl } from "@/lib/format";
 import { PROPERTY_TYPES } from "@/lib/labels";
 import { colors, palette } from "@/lib/theme";
 
-/** Breite einer Karte in der Reihe und Abstand dazwischen (Gestaltungsvorlage, 393 pt breit). */
+/** Grösse einer Karte in der Reihe und Abstand dazwischen (Gestaltungsvorlage, 393 pt breit). */
 export const TILE_WIDTH = 172;
+export const TILE_HEIGHT = 259;
 export const TILE_GAP = 12;
+const IMAGE_HEIGHT = 165;
 
 const rooms = (value: number) => String(value).replace(/\.0$/, "");
 
@@ -32,11 +34,16 @@ export function ListingTile({
   favorite,
   onToggleFavorite,
   gallery,
+  width = TILE_WIDTH,
+  height,
 }: {
   row: SearchRow;
   favorite: boolean;
   onToggleFavorite: () => void;
   gallery?: GalleryImage[];
+  /** Grösse der Karte; mit `height` füllt das Bild den Platz über den Angaben */
+  width?: number;
+  height?: number;
 }) {
   const router = useRouter();
   // Platzhalter (siehe lib/demo-listings) haben ihre Fotos in der App selbst
@@ -55,9 +62,9 @@ export function ListingTile({
       accessibilityRole="link"
       accessibilityLabel={`${demo ? "Beispiel: " : ""}${row.title ?? shortTitle(row)}, ${formatPrice(row)}, ${place}${coverAi ? ", Titelbild: KI-Visualisierung" : ""}`}
       onPress={open}
-      style={({ pressed }) => [styles.tile, pressed && { opacity: 0.94 }]}
+      style={({ pressed }) => [styles.tile, { width }, height ? { height } : null, pressed && { opacity: 0.94 }]}
     >
-      <View style={styles.imageWrap}>
+      <View style={[styles.imageWrap, height ? { flex: 1 } : { height: IMAGE_HEIGHT }]}>
         {cover ? (
           <Image source={cover} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
         ) : (
@@ -136,12 +143,11 @@ export function ListingTile({
 
 const styles = StyleSheet.create({
   tile: {
-    width: TILE_WIDTH,
     borderRadius: 16,
     backgroundColor: colors.white,
     boxShadow: "0 3px 12px rgba(25,35,20,0.08)",
   },
-  imageWrap: { height: 165, borderRadius: 15, overflow: "hidden", backgroundColor: "#eef1ea" },
+  imageWrap: { borderRadius: 15, overflow: "hidden", backgroundColor: "#eef1ea" },
   noImage: { alignItems: "center", justifyContent: "center" },
   heart: {
     position: "absolute",

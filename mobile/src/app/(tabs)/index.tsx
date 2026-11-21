@@ -7,7 +7,7 @@ import { ActivityIndicator, Animated, FlatList, Keyboard, Platform, Pressable, R
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HeroLogo } from "@/components/hero-logo";
-import { ListingTile, TILE_GAP, TILE_WIDTH } from "@/components/listing-tile";
+import { ListingTile, TILE_GAP, TILE_HEIGHT, TILE_WIDTH } from "@/components/listing-tile";
 import { FilterSheet } from "@/components/filter-sheet";
 import { FadeUp } from "@/components/motion";
 import { PlaceSuggestions } from "@/components/place-suggestions";
@@ -30,6 +30,10 @@ const OFFERS: { value: SearchFilters["offer"]; label: string }[] = [
 
 /** Zusätzlicher Abstand zwischen Logo und Titel (gegenüber der ersten Vorlage); das Alpenbild rückt mit. */
 const LOGO_GAP = 23;
+/** Platz über und unter den Karten der Reihe (für den Schatten) und am Ende der Seite */
+const ROW_PADDING_TOP = 13;
+const ROW_PADDING_BOTTOM = 14;
+const CONTENT_PADDING_BOTTOM = 4;
 
 export default function SearchScreen() {
   const [filters, setFilters] = React.useState<SearchFilters>(EMPTY_FILTERS);
@@ -103,6 +107,16 @@ export default function SearchScreen() {
   const [scrollY] = React.useState(() => new Animated.Value(0));
   const shade = scrollY.interpolate({ inputRange: [0, 24], outputRange: [0, 1], extrapolate: "clamp" });
 
+  // Die Karten füllen die Höhe bis zur Reiterleiste: auf hohen Bildschirmen grösser, nie kleiner als in der Vorlage.
+  // Gemessen werden nur Grössen, die nicht von den Karten abhängen (sichtbare Höhe, Lage der Reihe); die Breite
+  // wächst im Verhältnis mit, bleibt aber so, dass die nächste Karte sichtbar ist.
+  const [viewportHeight, setViewportHeight] = React.useState(0);
+  const [sectionTop, setSectionTop] = React.useState(0);
+  const [rowTopInSection, setRowTopInSection] = React.useState(0);
+  const rowAvailable = viewportHeight ? viewportHeight - sectionTop - rowTopInSection - CONTENT_PADDING_BOTTOM : 0;
+  const tileHeight = Math.max(TILE_HEIGHT, Math.floor(rowAvailable - ROW_PADDING_TOP - ROW_PADDING_BOTTOM));
+  const tileWidth = Math.round(Math.min(Math.max(TILE_WIDTH, (tileHeight * TILE_WIDTH) / TILE_HEIGHT), Math.min(250, width * 0.64)));
+
   const loadMore = () => {
     if (search.hasNextPage && !search.isFetchingNextPage) void search.fetchNextPage();
   };
@@ -110,7 +124,8 @@ export default function SearchScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: palette.screen }}>
       <Animated.ScrollView
-        contentContainerStyle={{ paddingBottom: 20 }}
+        contentContainerStyle={{ paddingBottom: CONTENT_PADDING_BOTTOM }}
+        onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         scrollEventThrottle={16}
@@ -217,7 +232,12 @@ export default function SearchScreen() {
             />
           </View>
         ) : (
-          <>
+          <View
+            // Während Ortsvorschläge offen sind, bleibt die Grösse der Karten (sonst springen sie beim Tippen)
+            onLayout={(event) => {
+              if (!showSuggestions) setSectionTop(event.nativeEvent.layout.y);
+            }}
+          >
             <View style={styles.sectionHeader}>
               <Text accessibilityRole="header" style={styles.sectionTitle} numberOfLines={1}>
                 {sectionTitle}
@@ -236,36 +256,45 @@ export default function SearchScreen() {
                 </Pressable>
               ) : null}
             </View>
-            {search.isPending ? (
-              <View style={styles.rowLoading}>
-                <ActivityIndicator color={palette.pine} />
-              </View>
-            ) : (
-              // Waagrechte Reihe: die Karten rasten ein, beim Blättern werden laufend weitere Treffer geladen
-              <FlatList
-                horizontal
-                data={items}
-                keyExtractor={(row) => row.id}
-                renderItem={({ item }) => (
-                  <ListingTile row={item} gallery={galleries[item.id]} favorite={favorites.isFavorite(item.id)} onToggleFavorite={() => favorites.toggle(item.id)} />
-                )}
-                ItemSeparatorComponent={TileGap}
-                showsHorizontalScrollIndicator={false}
-                snapToInterval={TILE_WIDTH + TILE_GAP}
-                decelerationRate="fast"
-                contentContainerStyle={styles.row}
-                onEndReached={loadMore}
-                onEndReachedThreshold={1.5}
-                ListFooterComponent={
-                  search.isFetchingNextPage ? (
-                    <View style={styles.rowMore}>
-                      <ActivityIndicator color={palette.pine} />
-                    </View>
-                  ) : undefined
-                }
-              />
-            )}
-          </>
+            <View testID="tile-row" onLayout={(event) => setRowTopInSection(event.nativeEvent.layout.y)}>
+              {search.isPending ? (
+                <View style={[styles.rowLoading, { height: tileHeight + ROW_PADDING_TOP + ROW_PADDING_BOTTOM }]}>
+                  <ActivityIndicator color={palette.pine} />
+                </View>
+              ) : (
+                // Waagrechte Reihe: die Karten rasten ein, beim Blättern werden laufend weitere Treffer geladen
+                <FlatList
+                  horizontal
+                  data={items}
+                  keyExtractor={(row) => row.id}
+                  renderItem={({ item }) => (
+                    <ListingTile
+                      row={item}
+                      width={tileWidth}
+                      height={tileHeight}
+                      gallery={galleries[item.id]}
+                      favorite={favorites.isFavorite(item.id)}
+                      onToggleFavorite={() => favorites.toggle(item.id)}
+                    />
+                  )}
+                  ItemSeparatorComponent={TileGap}
+                  showsHorizontalScrollIndicator={false}
+                  snapToInterval={tileWidth + TILE_GAP}
+                  decelerationRate="fast"
+                  contentContainerStyle={styles.row}
+                  onEndReached={loadMore}
+                  onEndReachedThreshold={1.5}
+                  ListFooterComponent={
+                    search.isFetchingNextPage ? (
+                      <View style={styles.rowMore}>
+                        <ActivityIndicator color={palette.pine} />
+                      </View>
+                    ) : undefined
+                  }
+                />
+              )}
+            </View>
+          </View>
         )}
       </Animated.ScrollView>
       <Animated.View pointerEvents="none" style={[styles.statusShade, { height: insets.top, opacity: shade }]} />
@@ -380,8 +409,8 @@ const styles = StyleSheet.create({
   sectionTitle: { flex: 1, fontSize: 18.5, lineHeight: 22, fontWeight: "700", letterSpacing: -0.3, color: palette.sectionTitle },
   allLink: { flexDirection: "row", alignItems: "center", gap: 6 },
   allText: { fontSize: 13.5, fontWeight: "500", color: palette.sectionLink },
-  row: { paddingHorizontal: 16, paddingTop: 13, paddingBottom: 14 },
-  rowLoading: { height: 290, alignItems: "center", justifyContent: "center" },
+  row: { paddingHorizontal: 16, paddingTop: ROW_PADDING_TOP, paddingBottom: ROW_PADDING_BOTTOM },
+  rowLoading: { alignItems: "center", justifyContent: "center" },
   rowMore: { width: 56, alignItems: "center", justifyContent: "center" },
   rowMessage: { marginTop: 24, paddingHorizontal: 23, gap: space.md },
   statusShade: { position: "absolute", top: 0, left: 0, right: 0, backgroundColor: palette.heroTop },
