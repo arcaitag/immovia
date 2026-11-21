@@ -161,7 +161,7 @@ export default function SearchScreen() {
         <FadeUp delay={120} style={styles.searchCard}>
           <View style={styles.searchRow}>
             <View style={styles.searchBox}>
-              <Ionicons name="search" size={23} color={palette.searchIcon} />
+              <Ionicons name="search" size={25} color={palette.searchIcon} />
               <TextInput
                 accessibilityLabel="Ort, PLZ oder Region"
                 placeholder="Ort, PLZ oder Region"
@@ -188,7 +188,7 @@ export default function SearchScreen() {
               style={({ pressed }) => [styles.filterButton, pressed && { opacity: 0.88 }]}
             >
               <VerticalGradient from={palette.pineLight} to={palette.pineDark} />
-              <Ionicons name="options-outline" size={24} color={colors.white} />
+              <Ionicons name="options-outline" size={27} color={colors.white} />
               {count > 0 ? (
                 <View style={styles.filterCount}>
                   <Text style={{ color: palette.pine, fontSize: 11, fontWeight: "800" }}>{count}</Text>
@@ -196,7 +196,7 @@ export default function SearchScreen() {
               ) : null}
             </Pressable>
           </View>
-          <View style={{ marginTop: showSuggestions ? 10 : 0 }}>
+          <View style={{ marginTop: showSuggestions ? 12 : 0 }}>
             <PlaceSuggestions query={queryInput} visible={showSuggestions} onPick={pickPlace} />
           </View>
           <View accessibilityRole="radiogroup" style={styles.offerRow}>
@@ -358,35 +358,36 @@ const styles = StyleSheet.create({
   hero: { paddingHorizontal: 22 },
   headline: { marginTop: 31 + LOGO_GAP, fontSize: 26, lineHeight: 28, fontWeight: "700", letterSpacing: -0.5, color: palette.headline },
   lead: { marginTop: 2.5, fontSize: 14.5, lineHeight: 18.2, color: palette.lead },
+  // Suchbereich grösser als in der Vorlage (Wunsch): höheres Feld, grösserer Filterknopf, Angebot über die ganze Breite
   searchCard: {
-    marginTop: 17,
+    marginTop: 22,
     marginHorizontal: 11,
-    paddingTop: 22,
-    paddingBottom: 21,
-    paddingHorizontal: 13,
-    borderRadius: 17,
+    paddingTop: 26,
+    paddingBottom: 24,
+    paddingHorizontal: 14,
+    borderRadius: 20,
     backgroundColor: palette.searchCard,
     // boxShadow statt shadow*: gleiche Unschärfe auf iOS, Android und im Web
     boxShadow: "0 6px 16px rgba(30,46,25,0.09)",
   },
-  searchRow: { flexDirection: "row", alignItems: "center", gap: 11 },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   searchBox: {
     flex: 1,
-    height: 48,
+    height: 58,
     flexDirection: "row",
     alignItems: "center",
-    gap: 11,
-    paddingLeft: 17,
-    paddingRight: 14,
-    borderRadius: 24,
+    gap: 12,
+    paddingLeft: 20,
+    paddingRight: 16,
+    borderRadius: 29,
     borderWidth: 1,
     borderColor: palette.inputBorder,
     backgroundColor: "#fbfbfa",
     boxShadow: "0 2px 4px rgba(25,40,20,0.09), 0 8px 20px rgba(25,40,20,0.09)",
   },
   // minWidth 0: das Feld darf schrumpfen, damit der Leeren-Knopf neben dem Filterknopf Platz behält
-  searchInput: { flex: 1, minWidth: 0, fontSize: 16, color: colors.foreground, paddingVertical: 10 },
-  filterButton: { width: 49, height: 49, borderRadius: 11, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  searchInput: { flex: 1, minWidth: 0, fontSize: 17.5, color: colors.foreground, paddingVertical: 10 },
+  filterButton: { width: 58, height: 58, borderRadius: 15, overflow: "hidden", alignItems: "center", justifyContent: "center" },
   filterCount: {
     position: "absolute",
     top: 4,
@@ -399,10 +400,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  offerRow: { marginTop: 21, flexDirection: "row", gap: 10 },
-  chip: { height: 38, minWidth: 67, paddingHorizontal: 18, borderRadius: 19, backgroundColor: palette.chip, alignItems: "center", justifyContent: "center" },
+  offerRow: { marginTop: 20, flexDirection: "row", gap: 10 },
+  chip: { flex: 1, height: 48, paddingHorizontal: 12, borderRadius: 24, backgroundColor: palette.chip, alignItems: "center", justifyContent: "center" },
   chipSelected: { backgroundColor: palette.pine },
-  chipText: { fontSize: 15, fontWeight: "500", color: palette.chipText },
+  chipText: { fontSize: 16.5, fontWeight: "500", color: palette.chipText },
   chipTextSelected: { fontWeight: "600", color: colors.white },
   // Abschnitt «Aktuelle Immobilien» und Reihe (zweite Gestaltungsvorlage)
   sectionHeader: { marginTop: 32, paddingHorizontal: 16.5, flexDirection: "row", alignItems: "center", gap: space.md },
